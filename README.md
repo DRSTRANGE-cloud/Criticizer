@@ -16,7 +16,7 @@ Netflix landing page for practice and educational purposes.
 📦 How to Use
 1. Clone the repository:
    ```bash
-   git clone https:/DRSTRANGE-cloud/github.com//Netflix-UI-Clone.git
+   git clone https://github.com/DRSTRANGE-cloud/Netflix-UI-Clone.git
 2. Open the index.html file in your browser to view the project.
 
 🎯 Purpose
