@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import axios from 'axios';
+import api from './services/api';
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 import Home from './pages/Home';
 import MovieDetails from './pages/MovieDetails';
 import Watchlist from './pages/Watchlist';
 import Profile from './pages/Profile';
 import AuthModal from './components/AuthModal';
 import './App.css';
-
-const API_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -25,9 +24,7 @@ function App() {
     const token = localStorage.getItem('token');
     if (token) {
       try {
-        const response = await axios.get(`${API_URL}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await api.get('/api/auth/me');
         setUser(response.data);
       } catch (error) {
         localStorage.removeItem('token');
@@ -54,28 +51,22 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-white text-2xl">Loading...</div>
+      <div className="min-h-screen bg-[#0B0B0B] flex items-center justify-center">
+        <div className="h-10 w-10 rounded-full border-2 border-white/20 border-t-fuchsia-500 animate-spin" aria-label="Loading" />
       </div>
     );
   }
 
   return (
     <Router>
-      <div className="App bg-black min-h-screen">
+      <div className="App bg-[#0B0B0B] min-h-screen">
         <Navbar user={user} onLogout={handleLogout} onOpenAuth={openAuthModal} />
-        
+
         <Routes>
           <Route path="/" element={<Home user={user} onOpenAuth={openAuthModal} />} />
           <Route path="/movie/:id" element={<MovieDetails user={user} onOpenAuth={openAuthModal} />} />
-          <Route 
-            path="/watchlist" 
-            element={user ? <Watchlist user={user} /> : <Navigate to="/" />} 
-          />
-          <Route 
-            path="/profile/:userId" 
-            element={<Profile user={user} />} 
-          />
+          <Route path="/watchlist" element={user ? <Watchlist user={user} /> : <Navigate to="/" replace />} />
+          <Route path="/profile/:userId" element={<Profile user={user} />} />
         </Routes>
 
         {showAuthModal && (
@@ -86,6 +77,7 @@ function App() {
             onSwitchMode={(mode) => setAuthMode(mode)}
           />
         )}
+        <Footer />
       </div>
     </Router>
   );

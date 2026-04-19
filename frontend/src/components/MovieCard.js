@@ -4,29 +4,41 @@ import { FaStar } from 'react-icons/fa';
 
 const MovieCard = ({ movie }) => {
   const navigate = useNavigate();
+  if (!movie) return null;
+
+  const imageUrl = movie.poster_path?.startsWith('http')
+    ? movie.poster_path
+    : `https://image.tmdb.org/t/p/w500${movie.poster_path}`;
 
   return (
     <div
       onClick={() => navigate(`/movie/${movie.id}`)}
       className="group relative cursor-pointer transition-transform duration-300 hover:scale-105"
-      data-testid={`movie-card-${movie.id}`}
     >
-      <div className="relative overflow-hidden rounded-lg">
+      <div className="relative overflow-hidden rounded-lg w-full h-[380px] bg-gray-800">
         <img
-          src={movie.poster_path}
+          src={imageUrl}
           alt={movie.title}
-          className="w-full h-auto object-cover"
+          loading="lazy"
+          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.08]"
           onError={(e) => {
-            e.target.src = 'https://via.placeholder.com/500x750?text=No+Image';
+            e.currentTarget.src =
+              'https://via.placeholder.com/500x750?text=No+Image';
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <div className="absolute bottom-0 left-0 right-0 p-4">
-            <h3 className="text-white font-bold text-lg mb-1">{movie.title}</h3>
-            <div className="flex items-center space-x-2">
-              <FaStar className="text-yellow-400" />
-              <span className="text-white">{movie.vote_average}</span>
-            </div>
+
+        {/* Hover Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="absolute bottom-0 p-4">
+            <h3 className="text-white font-semibold text-sm mb-1">
+              {movie.title}
+            </h3>
+            {typeof movie.vote_average === 'number' && movie.vote_average > 0 && (
+              <div className="flex items-center gap-1 text-sm text-yellow-400">
+                <FaStar />
+                <span>{movie.vote_average.toFixed(1)}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

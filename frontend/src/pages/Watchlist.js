@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { motion } from 'framer-motion';
+import api from '../services/api';
 import MovieCard from '../components/MovieCard';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
-
 const Watchlist = ({ user }) => {
-  const [movies, setMovies] = useState([]);
+  const [items, setItems] = useState({ watchlist: [], watch_later: [], watched: [] });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -14,11 +13,8 @@ const Watchlist = ({ user }) => {
 
   const fetchWatchlist = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/api/watchlist/get`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setMovies(response.data.movies);
+      const response = await api.get('/api/watchlist/get');
+      setItems(response.data.items || { watchlist: [], watch_later: [], watched: [] });
     } catch (error) {
       console.error('Error fetching watchlist:', error);
     } finally {
@@ -28,31 +24,59 @@ const Watchlist = ({ user }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center pt-20">
-        <div className="text-white text-2xl">Loading...</div>
+      <div className="min-h-screen bg-[#0B0B0B] flex items-center justify-center pt-20">
+        <div className="h-10 w-10 rounded-full border-2 border-white/20 border-t-fuchsia-500 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black pt-28 pb-12">
+    <motion.div
+      className="min-h-screen bg-[#0B0B0B] pt-28 pb-12"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-4xl font-bold text-white mb-8" data-testid="watchlist-title">My Watchlist</h1>
-        
-        {movies.length === 0 ? (
-          <div className="bg-critisizer-gray rounded-lg p-12 text-center">
-            <p className="text-gray-400 text-xl mb-4">Your watchlist is empty</p>
-            <p className="text-gray-500">Start adding movies you want to watch!</p>
+        <h1 className="text-4xl font-bold text-white mb-8" data-testid="watchlist-title">
+          My Lists
+        </h1>
+
+        {Object.values(items).every((group) => group.length === 0) ? (
+          <div className="bg-white/5 rounded-2xl p-12 text-center border border-white/10">
+            <p className="text-gray-400 text-xl mb-4">No saved titles yet</p>
+            <p className="text-gray-500">Start adding movies to watchlist, watch later, or watched.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-            {movies.map((movie) => (
-              <MovieCard key={movie.id} movie={movie} />
+          <div className="space-y-10">
+            {[
+              ['watchlist', 'Watchlist'],
+              ['watch_later', 'Watch Later'],
+              ['watched', 'Watched'],
+            ].map(([key, label]) => (
+              <section key={key}>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-2xl font-semibold text-white">{label}</h2>
+                  <span className="text-sm text-gray-500">{items[key]?.length || 0} titles</span>
+                </div>
+                {items[key]?.length ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                    {items[key].map((movie) => (
+                      <motion.div key={`${key}-${movie.id}`} whileHover={{ scale: 1.04 }} transition={{ type: 'spring', stiffness: 400, damping: 28 }}>
+                        <MovieCard movie={movie} />
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-gray-500">
+                    Nothing saved here yet.
+                  </div>
+                )}
+              </section>
             ))}
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 };
 
