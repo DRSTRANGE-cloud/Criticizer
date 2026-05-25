@@ -9,11 +9,12 @@ from app.services.tmdb import (
     discover_movies_filtered,
     discover_anime,
     discover_tv,
-    movie_details,
-    movie_watch_providers,
+    media_details,
+    media_watch_providers,
+    parse_media_slug,
     search_movies,
     search_multi,
-    similar_movies,
+    similar_media,
     top_rated_movies,
     trending_movies,
     trending_mixed,
@@ -170,11 +171,12 @@ async def discover(page: int = 1):
 @router.get("/{movie_id}")
 async def get_movie(movie_id: str):
     try:
-        movie = await movie_details(movie_id=movie_id)
+        media_type, media_id = parse_media_slug(movie_id)
+        movie = await media_details(movie_id)
         year = (movie.get("release_date") or "")[:4] or None
 
         providers_tmdb, providers_wm = await asyncio.gather(
-            movie_watch_providers(movie_id=movie_id),
+            media_watch_providers(movie_id),
             fetch_watchmode_sources(movie.get("title") or "", year),
         )
 
@@ -188,7 +190,10 @@ async def get_movie(movie_id: str):
                 seen_names.add(name)
             entry = {**p}
             if not entry.get("web_url") and entry.get("source") == "tmdb":
-                entry["web_url"] = f"https://www.themoviedb.org/movie/{movie_id}/watch"
+                if media_type == "tv":
+                    entry["web_url"] = f"https://www.themoviedb.org/tv/{media_id}/watch"
+                else:
+                    entry["web_url"] = f"https://www.themoviedb.org/movie/{media_id}/watch"
             where.append(entry)
 
         reviews = list(reviews_collection.find({"movie_id": movie_id}))
@@ -216,7 +221,7 @@ async def get_movie(movie_id: str):
             "where_to_watch": where,
             "reviews": reviews,
             "top_review": top_review,
-            "similar_movies": await similar_movies(movie_id),
+            "similar_movies": await similar_media(movie_id),
             "rating_distribution": dist,
             "rating_distribution_pct": _dist_percentages(dist),
             "total_votes": len(reviews),

@@ -10,9 +10,12 @@ const MovieCard = ({ movie }) => {
     ? movie.poster_path
     : `https://image.tmdb.org/t/p/w500${movie.poster_path}`;
 
+  const slug =
+    movie.slug || (movie.media_type === 'tv' ? `tv-${movie.id}` : String(movie.id));
+
   return (
     <div
-      onClick={() => navigate(`/movie/${movie.id}`)}
+      onClick={() => navigate(`/movie/${slug}`)}
       className="group relative cursor-pointer transition-transform duration-300 hover:scale-105"
     >
       <div className="relative overflow-hidden rounded-lg w-full h-[380px] bg-gray-800">

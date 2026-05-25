@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import api from '../services/api';
 import MovieCard from '../components/MovieCard';
@@ -51,7 +51,7 @@ function RowSection({ id, title, movies, loading }) {
           ? [1, 2, 3, 4, 5].map((i) => <SkeletonCard key={i} />)
           : (movies.length ? movies : []).map((movie) => (
               <motion.div
-                key={`${id}-${movie.id}`}
+                key={`${id}-${movie.slug || movie.id}`}
                 className="flex-none w-64"
                 whileHover={{ scale: 1.03 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 25 }}
@@ -64,6 +64,8 @@ function RowSection({ id, title, movies, loading }) {
   );
 }
 
+const KEEP_SCROLL_LIMIT = 20;
+
 const Home = ({ user, onOpenAuth }) => {
   const [trendingMovies, setTrendingMovies] = useState([]);
   const [discoverMovies, setDiscoverMovies] = useState([]);
@@ -72,13 +74,9 @@ const Home = ({ user, onOpenAuth }) => {
   const [categoryRows, setCategoryRows] = useState({
     bollywood: [],
     hollywood: [],
-    anime: [],
     kids: [],
     tv: [],
   });
-  const [discoverPage, setDiscoverPage] = useState(1);
-  const [discoverTotalPages, setDiscoverTotalPages] = useState(1);
-  const [discoverLoadingMore, setDiscoverLoadingMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState(null);
   const [discoverError, setDiscoverError] = useState(null);
@@ -87,34 +85,28 @@ const Home = ({ user, onOpenAuth }) => {
   const [postDraft, setPostDraft] = useState('');
   const [posting, setPosting] = useState(false);
 
-  const sentinelRef = useRef(null);
-
   useEffect(() => {
     const load = async () => {
       try {
-        const [trendRes, discRes, topRes, mixedRes, bollywoodRes, hollywoodRes, animeRes, kidsRes, tvRes] = await Promise.all([
+        const [trendRes, discRes, topRes, mixedRes, bollywoodRes, hollywoodRes, kidsRes, tvRes] = await Promise.all([
           api.get('/api/movies/trending'),
           api.get('/api/movies/discover?page=1'),
           api.get('/api/movies/top-rated?page=1'),
           api.get('/api/movies/trending-mixed'),
           api.get('/api/movies/category/bollywood?page=1'),
           api.get('/api/movies/category/hollywood?page=1'),
-          api.get('/api/movies/category/anime?page=1'),
           api.get('/api/movies/category/kids?page=1'),
           api.get('/api/movies/category/tv?page=1'),
         ]);
         setTrendingMovies(trendRes.data.movies || []);
         setApiError(trendRes.data.error || null);
         setDiscoverMovies(discRes.data.movies || []);
-        setDiscoverPage(discRes.data.page || 1);
-        setDiscoverTotalPages(discRes.data.total_pages || 1);
         setDiscoverError(discRes.data.error || null);
         setTopRatedMovies(topRes.data.movies || []);
         setMixedTrending(mixedRes.data.movies || []);
         setCategoryRows({
           bollywood: bollywoodRes.data.movies || [],
           hollywood: hollywoodRes.data.movies || [],
-          anime: animeRes.data.movies || [],
           kids: kidsRes.data.movies || [],
           tv: tvRes.data.movies || [],
         });
@@ -127,65 +119,30 @@ const Home = ({ user, onOpenAuth }) => {
     load();
   }, []);
 
-  const loadMoreDiscover = useCallback(async () => {
-    if (discoverLoadingMore || discoverPage >= discoverTotalPages) return;
-    setDiscoverLoadingMore(true);
-    try {
-      const next = discoverPage + 1;
-      const res = await api.get('/api/movies/discover', { params: { page: next } });
-      const more = res.data.movies || [];
-      setDiscoverMovies((prev) => {
-        const seen = new Set(prev.map((m) => m.id));
-        const merged = [...prev];
-        for (const m of more) {
-          if (!seen.has(m.id)) {
-            seen.add(m.id);
-            merged.push(m);
-          }
-        }
-        return merged;
-      });
-      setDiscoverPage(res.data.page || next);
-      setDiscoverTotalPages(res.data.total_pages || discoverTotalPages);
-    } catch {
-      /* ignore */
-    } finally {
-      setDiscoverLoadingMore(false);
-    }
-  }, [discoverLoadingMore, discoverPage, discoverTotalPages]);
-
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return undefined;
-    const obs = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) loadMoreDiscover();
-      },
-      { rootMargin: '200px' }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [loadMoreDiscover]);
-
   const moodMovies = useMemo(() => {
     const map = {
       all: discoverMovies,
       action: categoryRows.hollywood,
       feelgood: topRatedMovies,
-      anime: categoryRows.anime,
-      kids: categoryRows.kids,
+      animated: categoryRows.kids,
       series: categoryRows.tv,
     };
     return map[activeMood] || discoverMovies;
   }, [activeMood, discoverMovies, categoryRows, topRatedMovies]);
+
+  const keepScrollingMovies = useMemo(
+    () => discoverMovies.slice(0, KEEP_SCROLL_LIMIT),
+    [discoverMovies]
+  );
 
   const picks = useMemo(() => {
     const merged = [...trendingMovies, ...topRatedMovies.filter((m) => (m.vote_average || 0) >= 7.5)];
     const seen = new Set();
     const uniq = [];
     for (const item of merged) {
-      if (!item?.id || seen.has(item.id)) continue;
-      seen.add(item.id);
+      const key = item?.slug || `${item?.media_type || 'movie'}-${item?.id}`;
+      if (!item?.id || seen.has(key)) continue;
+      seen.add(key);
       uniq.push(item);
       if (uniq.length >= 6) break;
     }
@@ -193,7 +150,7 @@ const Home = ({ user, onOpenAuth }) => {
   }, [trendingMovies, topRatedMovies]);
 
   const loadDiscussion = useCallback(async () => {
-    const target = trendingMovies[0]?.id;
+    const target = trendingMovies[0]?.slug || trendingMovies[0]?.id;
     if (!target) return;
     try {
       const res = await api.get(`/api/discussions/movie/${target}`);
@@ -214,7 +171,7 @@ const Home = ({ user, onOpenAuth }) => {
     setPosting(true);
     try {
       await api.post('/api/discussions/create', {
-        movie_id: trendingMovies[0]?.id || '',
+        movie_id: trendingMovies[0]?.slug || trendingMovies[0]?.id || '',
         text,
       });
       setPostDraft('');
@@ -310,8 +267,7 @@ const Home = ({ user, onOpenAuth }) => {
                   ['all', 'All'],
                   ['action', 'Action Night'],
                   ['feelgood', 'Feel Good'],
-                  ['anime', 'Anime'],
-                  ['kids', 'Kids'],
+                  ['animated', 'Animated'],
                   ['series', 'Series'],
                 ].map(([key, label]) => (
                   <button
@@ -330,7 +286,7 @@ const Home = ({ user, onOpenAuth }) => {
               </div>
               <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {(picks.length ? picks : moodMovies).slice(0, 6).map((movie, index) => (
-                  <div key={`mood-${movie.id}`} className="relative">
+                  <div key={`mood-${movie.slug || movie.id}`} className="relative">
                     <span className="absolute top-2 left-2 z-10 rounded-full bg-black/80 border border-fuchsia-500/50 px-2 py-0.5 text-[10px] text-fuchsia-200">
                       {index % 2 === 0 ? "Why it's trending" : 'Fan Favorite'}
                     </span>
@@ -363,8 +319,7 @@ const Home = ({ user, onOpenAuth }) => {
           <RowSection id="movie-carousel-top-rated" title="Top Rated" movies={topRatedMovies} loading={false} />
           <RowSection id="movie-carousel-bollywood" title="Bollywood" movies={categoryRows.bollywood} loading={false} />
           <RowSection id="movie-carousel-hollywood" title="Hollywood" movies={categoryRows.hollywood} loading={false} />
-          <RowSection id="movie-carousel-anime" title="Anime" movies={categoryRows.anime} loading={false} />
-          <RowSection id="movie-carousel-kids" title="Animated / Kids" movies={categoryRows.kids} loading={false} />
+          <RowSection id="movie-carousel-kids" title="Animated Movies" movies={categoryRows.kids} loading={false} />
           <RowSection id="movie-carousel-tv" title="TV Shows" movies={categoryRows.tv} loading={false} />
           <RowSection id="movie-carousel-mixed" title="What Everyone Is Talking About" movies={mixedTrending} loading={false} />
 
@@ -423,9 +378,9 @@ const Home = ({ user, onOpenAuth }) => {
               {discoverError && <span className="text-xs text-amber-400 max-w-md text-right">{discoverError}</span>}
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-              {discoverMovies.map((movie) => (
+              {keepScrollingMovies.map((movie) => (
                 <motion.div
-                  key={`d-${movie.id}`}
+                  key={`d-${movie.slug || movie.id}`}
                   whileHover={{ scale: 1.04 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 28 }}
                 >
@@ -433,14 +388,10 @@ const Home = ({ user, onOpenAuth }) => {
                 </motion.div>
               ))}
             </div>
-            {discoverPage < discoverTotalPages && (
-              <div ref={sentinelRef} className="h-16 flex items-center justify-center mt-8">
-                {discoverLoadingMore ? (
-                  <div className="h-8 w-8 rounded-full border-2 border-white/20 border-t-fuchsia-500 animate-spin" />
-                ) : (
-                  <span className="text-gray-500 text-sm">Scroll for more…</span>
-                )}
-              </div>
+            {discoverMovies.length > KEEP_SCROLL_LIMIT && (
+              <p className="mt-6 text-center text-sm text-gray-500">
+                Showing {KEEP_SCROLL_LIMIT} titles — explore rows above for more.
+              </p>
             )}
           </section>
         </div>

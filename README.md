@@ -71,21 +71,37 @@
 - MongoDB
 - Yarn package manager
 
-### Installation
+### Run locally (Windows)
 
-The application is already set up and running! Services are managed by Supervisor:
+**1. Backend** (must match frontend port in `frontend/.env`):
 
-```bash
-# Check service status
-sudo supervisorctl status
-
-# Restart services
-sudo supervisorctl restart all
-
-# View logs
-tail -f /var/log/supervisor/backend.err.log
-tail -f /var/log/supervisor/frontend.err.log
+```powershell
+cd backend
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+# Option A — port 8001 (recommended; set REACT_APP_BACKEND_URL=http://localhost:8001)
+.\start.ps1
+# Option B — default port 8000 (set REACT_APP_BACKEND_URL=http://localhost:8000)
+uvicorn server:app --reload --host 127.0.0.1 --port 8000
 ```
+
+**2. Frontend** (restart after changing `.env`):
+
+```powershell
+cd frontend
+npm install
+npm start
+```
+
+**3. MongoDB** must be running locally (`mongodb://localhost:27017/`).
+
+### Network error?
+
+If the UI shows **Network Error**, the API URL and backend port do not match. Check:
+
+- Backend log: `Uvicorn running on http://127.0.0.1:8000` vs `8001`
+- `frontend/.env`: `REACT_APP_BACKEND_URL` must use the **same port**
+- After editing `.env`, stop and run `npm start` again
 
 ## 🌐 API Endpoints
 

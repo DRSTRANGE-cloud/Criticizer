@@ -19,9 +19,25 @@ def _cache_key(path: str, params: dict[str, Any]) -> str:
     return f"tmdb:{hash(stable)}"
 
 
-def normalize_movie(m: dict[str, Any]) -> dict[str, Any]:
+def media_slug(media_type: str, media_id: str) -> str:
+    return f"tv-{media_id}" if media_type == "tv" else media_id
+
+
+def parse_media_slug(slug: str) -> tuple[str, str]:
+    if slug.startswith("tv-"):
+        return "tv", slug[3:]
+    return "movie", slug
+
+
+def normalize_movie(m: dict[str, Any], media_type: str = "movie") -> dict[str, Any]:
+    mid = str(m.get("id"))
+    mt = m.get("media_type") or media_type
+    if mt not in ("movie", "tv"):
+        mt = "movie"
     return {
-        "id": str(m.get("id")),
+        "id": mid,
+        "media_type": mt,
+        "slug": media_slug(mt, mid),
         "title": m.get("title") or m.get("name") or "",
         "overview": m.get("overview") or "",
         "poster_path": _img(m.get("poster_path"), "w500"),
@@ -58,7 +74,13 @@ async def trending_movies() -> list[dict[str, Any]]:
 
 async def trending_mixed() -> list[dict[str, Any]]:
     data = await tmdb_get("/trending/all/week", ttl=300)
-    return [normalize_movie(m) for m in data.get("results", [])]
+    out = []
+    for m in data.get("results", []):
+        mt = m.get("media_type")
+        if mt not in ("movie", "tv"):
+            continue
+        out.append(normalize_movie(m, media_type=mt))
+    return out
 
 
 async def discover_movies(page: int = 1) -> tuple[list[dict[str, Any]], int, int, int]:
@@ -124,7 +146,7 @@ async def discover_tv(page: int = 1) -> tuple[list[dict[str, Any]], int, int, in
             "include_adult": "false",
         },
     )
-    movies = [normalize_movie(m) for m in data.get("results", [])]
+    movies = [normalize_movie(m, media_type="tv") for m in data.get("results", [])]
     return (
         movies,
         int(data.get("page") or page),
@@ -191,9 +213,7 @@ async def search_multi(query: str, page: int = 1) -> tuple[list[dict[str, Any]],
         media_type = item.get("media_type")
         if media_type not in {"movie", "tv"}:
             continue
-        normalized = normalize_movie(item)
-        normalized["media_type"] = media_type
-        results.append(normalized)
+        results.append(normalize_movie(item, media_type=media_type))
     return (
         results,
         int(data.get("page") or page),
@@ -202,8 +222,63 @@ async def search_multi(query: str, page: int = 1) -> tuple[list[dict[str, Any]],
     )
 
 
+async def tv_details(tv_id: str) -> dict[str, Any]:
+    key = f"tv-details:{tv_id}"
+    hit = tmdb_cache.get(key)
+    if hit is not None:
+        return hit  # type: ignore[return-value]
+
+    details = await tmdb_get(
+        f"/tv/{tv_id}",
+        params={"append_to_response": "videos,credits"},
+        ttl=600,
+    )
+
+    trailer_key = None
+    for v in (details.get("videos") or {}).get("results", []):
+        if v.get("site") == "YouTube" and v.get("type") in ("Trailer", "Teaser"):
+            trailer_key = v.get("key")
+            if v.get("type") == "Trailer":
+                break
+
+    credits = details.get("credits") or {}
+    cast = [
+        {
+            "id": str(c.get("id")),
+            "name": c.get("name"),
+            "character": c.get("character"),
+            "profile_path": _img(c.get("profile_path"), "w185"),
+        }
+        for c in (credits.get("cast") or [])[:10]
+    ]
+    crew = credits.get("crew") or []
+    creators = [p.get("name") for p in crew if p.get("job") in ("Creator", "Series Creator") and p.get("name")]
+    director = creators[0] if creators else None
+
+    companies = details.get("production_companies") or []
+    production_companies = [
+        {"name": c.get("name"), "logo_path": _img(c.get("logo_path"), "w92")}
+        for c in companies
+        if c.get("name")
+    ]
+    production_company = companies[0].get("name") if companies else None
+
+    out = {
+        **normalize_movie(details, media_type="tv"),
+        "runtime": (details.get("episode_run_time") or [0])[0] if details.get("episode_run_time") else 0,
+        "genres": [g.get("name") for g in (details.get("genres") or []) if g.get("name")],
+        "trailer_key": trailer_key,
+        "cast": cast,
+        "director": director,
+        "production_company": production_company,
+        "production_companies": production_companies,
+    }
+    tmdb_cache.set(key, out, ttl_seconds=600)
+    return out
+
+
 async def movie_details(movie_id: str) -> dict[str, Any]:
-    key = f"details:{movie_id}"
+    key = f"movie-details:{movie_id}"
     hit = tmdb_cache.get(key)
     if hit is not None:
         return hit  # type: ignore[return-value]
@@ -244,7 +319,7 @@ async def movie_details(movie_id: str) -> dict[str, Any]:
     production_company = companies[0].get("name") if companies else None
 
     out = {
-        **normalize_movie(details),
+        **normalize_movie(details, media_type="movie"),
         "runtime": details.get("runtime") or 0,
         "genres": [g.get("name") for g in (details.get("genres") or []) if g.get("name")],
         "trailer_key": trailer_key,
@@ -284,6 +359,55 @@ async def movie_watch_providers(movie_id: str, region: str = "US") -> list[dict[
     return out
 
 
+async def tv_watch_providers(tv_id: str, region: str = "US") -> list[dict[str, Any]]:
+    data = await tmdb_get(f"/tv/{tv_id}/watch/providers", ttl=900)
+    by_region = (data.get("results") or {}).get(region) or {}
+    providers = []
+    for key in ("flatrate", "rent", "buy"):
+        for p in by_region.get(key) or []:
+            providers.append(
+                {
+                    "provider_id": p.get("provider_id"),
+                    "provider_name": p.get("provider_name"),
+                    "logo_path": _img(p.get("logo_path"), "w92"),
+                    "type": key,
+                    "source": "tmdb",
+                }
+            )
+    seen: set[tuple[int | None, str]] = set()
+    out = []
+    for p in providers:
+        k = (p.get("provider_id"), p.get("type"))
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(p)
+    return out
+
+
+async def media_details(slug: str) -> dict[str, Any]:
+    media_type, media_id = parse_media_slug(slug)
+    if media_type == "tv":
+        return await tv_details(media_id)
+    return await movie_details(media_id)
+
+
+async def media_watch_providers(slug: str, region: str = "US") -> list[dict[str, Any]]:
+    media_type, media_id = parse_media_slug(slug)
+    if media_type == "tv":
+        return await tv_watch_providers(media_id, region=region)
+    return await movie_watch_providers(media_id, region=region)
+
+
+async def similar_media(slug: str) -> list[dict[str, Any]]:
+    media_type, media_id = parse_media_slug(slug)
+    if media_type == "tv":
+        data = await tmdb_get(f"/tv/{media_id}/similar", params={"page": "1"}, ttl=600)
+        return [normalize_movie(m, media_type="tv") for m in data.get("results", [])[:12]]
+    data = await tmdb_get(f"/movie/{media_id}/similar", params={"page": "1"}, ttl=600)
+    return [normalize_movie(m, media_type="movie") for m in data.get("results", [])[:12]]
+
+
 async def similar_movies(movie_id: str) -> list[dict[str, Any]]:
     data = await tmdb_get(f"/movie/{movie_id}/similar", params={"page": "1"}, ttl=600)
-    return [normalize_movie(m) for m in data.get("results", [])[:12]]
+    return [normalize_movie(m, media_type="movie") for m in data.get("results", [])[:12]]

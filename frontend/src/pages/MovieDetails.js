@@ -1,17 +1,15 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   PieChart,
   Pie,
-  RadialBarChart,
-  RadialBar,
   Tooltip,
   ResponsiveContainer,
   Cell,
 } from 'recharts';
 import api from '../services/api';
-import { FaStar, FaBookmark, FaPlay, FaExternalLinkAlt, FaClock, FaCheckCircle, FaHeart, FaComment } from 'react-icons/fa';
+import { FaStar, FaBookmark, FaPlay, FaExternalLinkAlt, FaClock, FaCheckCircle, FaHeart, FaComment, FaArrowLeft } from 'react-icons/fa';
 import MovieCard from '../components/MovieCard';
 import { RATING_OPTIONS } from '../constants/ratings';
 
@@ -21,8 +19,71 @@ const WATCH_STATES = [
   { value: 'watched', label: 'Watched', icon: FaCheckCircle },
 ];
 
+function MeterDonut({ segments, score, avgStars, hasVotes }) {
+  const active = segments.filter((s) => s.pct > 0);
+  let acc = 0;
+  const ringGradient =
+    active.length > 0
+      ? `conic-gradient(from 270deg, ${active
+          .map((s) => {
+            const start = acc;
+            acc += s.pct;
+            return `${s.fill} ${start}% ${acc}%`;
+          })
+          .join(', ')})`
+      : 'conic-gradient(from 270deg, rgba(255,255,255,0.07) 0deg, rgba(255,255,255,0.12) 360deg)';
+
+  const glowColor = active.length ? active[active.length - 1].fill : '#a855f7';
+
+  return (
+    <div className="relative h-44 w-44 mx-auto">
+      <div
+        className="absolute inset-0 rounded-full transition-all duration-700"
+        style={{
+          background: ringGradient,
+          boxShadow: hasVotes ? `0 0 36px ${glowColor}55, inset 0 0 20px rgba(0,0,0,0.35)` : undefined,
+        }}
+      />
+      <div className="absolute inset-[11px] rounded-full bg-[#0d0d0d] border border-white/10 shadow-inner flex flex-col items-center justify-center">
+        <p className="text-3xl font-bold text-white tabular-nums leading-none">
+          {hasVotes ? `${score}%` : '—'}
+        </p>
+        <p className="text-[10px] uppercase tracking-widest text-gray-500 mt-1.5">
+          {hasVotes ? 'Overall score' : 'No votes yet'}
+        </p>
+        {hasVotes && avgStars != null && (
+          <p className="text-xs text-gray-400 mt-1 tabular-nums">{avgStars} ★ avg</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GenreTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const item = payload[0];
+  const color = item.payload?.fill || '#c084fc';
+  return (
+    <div
+      className="rounded-xl px-4 py-3 shadow-2xl backdrop-blur-md min-w-[140px]"
+      style={{
+        background: 'rgba(24, 24, 27, 0.97)',
+        border: `1px solid ${color}55`,
+        boxShadow: `0 12px 40px ${color}40`,
+      }}
+    >
+      <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400">Genre</p>
+      <p className="text-sm font-semibold text-white mt-1 leading-snug">{item.name}</p>
+      <p className="text-2xl font-bold mt-1 tabular-nums" style={{ color }}>
+        {item.value}%
+      </p>
+    </div>
+  );
+}
+
 const MovieDetails = ({ user, onOpenAuth }) => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [movie, setMovie] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [ratingPct, setRatingPct] = useState({});
@@ -47,6 +108,19 @@ const MovieDetails = ({ user, onOpenAuth }) => {
       pct: ratingPct[o.value] ?? 0,
       fill: o.color,
     }));
+  }, [ratingPct]);
+
+  const meterOverall = useMemo(() => {
+    let weighted = 0;
+    let hasVotes = false;
+    RATING_OPTIONS.forEach((o, index) => {
+      const pct = ratingPct[o.value] ?? 0;
+      if (pct > 0) hasVotes = true;
+      weighted += (index + 1) * pct;
+    });
+    const avgStars = hasVotes ? weighted / 100 : null;
+    const score = hasVotes ? Math.round((avgStars / 5) * 100) : 0;
+    return { score, avgStars, hasVotes };
   }, [ratingPct]);
 
   const genreRows = useMemo(() => {
@@ -96,6 +170,7 @@ const MovieDetails = ({ user, onOpenAuth }) => {
   }, []);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     setLoading(true);
     fetchMovieDetails();
   }, [fetchMovieDetails]);
@@ -205,8 +280,6 @@ const MovieDetails = ({ user, onOpenAuth }) => {
   const backdrop = movie.backdrop_path || movie.poster_path;
   const cast = movie.cast || [];
   const companies = movie.production_companies || [];
-  const meterScore = Math.max(...Object.values(ratingPct || {}), 0);
-
   return (
     <motion.div
       className="min-h-screen bg-[#0B0B0B]"
@@ -214,6 +287,16 @@ const MovieDetails = ({ user, onOpenAuth }) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
+      <div className="fixed top-24 left-5 sm:left-6 z-40">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="group inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/60 backdrop-blur-md px-4 py-2.5 text-sm font-medium text-white shadow-lg transition hover:border-fuchsia-500/50 hover:bg-black/80"
+        >
+          <FaArrowLeft className="text-xs transition group-hover:-translate-x-0.5" />
+          Back
+        </button>
+      </div>
       <div
         className="relative min-h-[90vh] bg-cover bg-center"
         style={{
@@ -417,92 +500,17 @@ const MovieDetails = ({ user, onOpenAuth }) => {
             )}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
-            <div className="bg-white/5 backdrop-blur rounded-2xl p-6 border border-white/10">
-              <h3 className="text-xl font-bold text-white mb-4">Criticizer Meter</h3>
-              <div className="h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadialBarChart
-                    innerRadius="60%"
-                    outerRadius="100%"
-                    data={[{ name: 'score', value: meterScore, fill: '#9333ea' }]}
-                    startAngle={180}
-                    endAngle={0}
-                  >
-                    <defs>
-                      <linearGradient id="meterGlow" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#22c55e" />
-                        <stop offset="45%" stopColor="#f59e0b" />
-                        <stop offset="100%" stopColor="#a855f7" />
-                      </linearGradient>
-                    </defs>
-                    <RadialBar background dataKey="value" cornerRadius={12} fill="url(#meterGlow)" isAnimationActive animationDuration={1200} />
-                    <text x="50%" y="55%" textAnchor="middle" fill="#ffffff" className="text-4xl font-bold">
-                      {meterScore}%
-                    </text>
-                    <text x="50%" y="68%" textAnchor="middle" fill="#9ca3af">
-                      Community confidence
-                    </text>
-                  </RadialBarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {meterRows.map((entry, index) => (
-                  <div key={entry.name} className="flex items-center justify-between rounded-xl bg-white/5 px-4 py-3">
-                    <div className="flex items-center gap-2 text-sm text-white">
-                      <span className="h-3 w-3 rounded-full" style={{ backgroundColor: entry.fill }} />
-                      <span>{RATING_OPTIONS[index].label}</span>
-                    </div>
-                    <span className="text-gray-400">{entry.pct}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-white/5 backdrop-blur rounded-2xl p-6 border border-white/10">
-              <h3 className="text-xl font-bold text-white mb-4">Vibe Chart</h3>
-              <div className="h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={genreRows}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={55}
-                      outerRadius={85}
-                      paddingAngle={3}
-                    >
-                      {genreRows.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value) => [`${value}%`, 'Share']}
-                      contentStyle={{ background: '#141414', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12 }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-3">
-                {genreRows.map((entry) => (
-                  <div key={entry.name} className="rounded-xl bg-white/5 px-4 py-3 border border-white/10">
-                    <div className="flex items-center gap-2">
-                      <span className="h-3 w-3 rounded-full" style={{ backgroundColor: entry.fill }} />
-                      <span className="text-white text-sm">{entry.name}</span>
-                    </div>
-                    <div className="mt-1 text-xs text-gray-400">{entry.value}% visual share</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
           {showReviewForm && (
-            <div className="bg-white/5 backdrop-blur rounded-2xl p-6 mb-8 border border-white/10" data-testid="review-form">
-              <h3 className="text-xl font-bold text-white mb-4">Write your review</h3>
-              <form onSubmit={handleSubmitReview} className="space-y-4">
+            <div
+              className="relative overflow-hidden rounded-2xl border border-fuchsia-500/25 bg-gradient-to-br from-violet-950/50 via-[#141414] to-fuchsia-950/40 p-6 mb-8 shadow-[0_0_40px_rgba(168,85,247,0.12)]"
+              data-testid="review-form"
+            >
+              <div className="pointer-events-none absolute -top-12 right-0 h-36 w-36 rounded-full bg-fuchsia-600/25 blur-3xl" />
+              <h3 className="relative text-xl font-bold text-white mb-1">Write your review</h3>
+              <p className="relative text-sm text-gray-400 mb-5">Share your rating before exploring community stats below</p>
+              <form onSubmit={handleSubmitReview} className="relative space-y-4">
                 <div>
-                  <label className="text-white mb-2 block">Your rating</label>
+                  <label className="text-white mb-2 block text-sm font-medium">Your rating</label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {RATING_OPTIONS.map((option) => (
                       <button
@@ -511,8 +519,8 @@ const MovieDetails = ({ user, onOpenAuth }) => {
                         onClick={() => setReviewData({ ...reviewData, rating_label: option.value })}
                         className={`p-4 rounded-xl border-2 transition text-left ${
                           reviewData.rating_label === option.value
-                            ? `${option.bg} border-white`
-                            : 'bg-[#141414] border-gray-600 hover:border-white/40'
+                            ? `${option.bg} border-white shadow-lg`
+                            : 'bg-black/40 border-white/10 hover:border-white/30'
                         }`}
                         data-testid={`rating-option-${option.value}`}
                       >
@@ -523,13 +531,13 @@ const MovieDetails = ({ user, onOpenAuth }) => {
                   </div>
                 </div>
                 <div>
-                  <label className="text-white mb-2 block">Your review</label>
+                  <label className="text-white mb-2 block text-sm font-medium">Your review</label>
                   <textarea
                     value={reviewData.review_text}
                     onChange={(e) => setReviewData({ ...reviewData, review_text: e.target.value })}
                     required
                     rows="4"
-                    className="w-full px-4 py-3 bg-[#141414] text-white rounded-xl border border-gray-600 focus:border-fuchsia-500 focus:outline-none"
+                    className="w-full px-4 py-3 bg-black/50 text-white rounded-xl border border-white/15 focus:border-fuchsia-500 focus:outline-none focus:ring-1 focus:ring-fuchsia-500/40"
                     placeholder="Share your thoughts..."
                     data-testid="review-text-input"
                   />
@@ -538,7 +546,7 @@ const MovieDetails = ({ user, onOpenAuth }) => {
                   <button
                     type="submit"
                     disabled={submitting || !reviewData.rating_label}
-                    className="bg-red-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-red-700 transition disabled:opacity-50"
+                    className="bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50"
                     data-testid="submit-review-button"
                   >
                     {submitting ? 'Submitting...' : 'Submit Review'}
@@ -546,7 +554,7 @@ const MovieDetails = ({ user, onOpenAuth }) => {
                   <button
                     type="button"
                     onClick={() => setShowReviewForm(false)}
-                    className="bg-[#141414] text-white px-6 py-3 rounded-xl font-semibold hover:bg-gray-800 transition"
+                    className="bg-black/40 text-white px-6 py-3 rounded-xl font-semibold border border-white/15 hover:bg-black/60 transition"
                     data-testid="cancel-review-button"
                   >
                     Cancel
@@ -555,6 +563,189 @@ const MovieDetails = ({ user, onOpenAuth }) => {
               </form>
             </div>
           )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+            <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-emerald-950/35 via-[#121212] to-violet-950/35 p-6">
+              <div className="pointer-events-none absolute -top-16 -left-10 h-48 w-48 rounded-full bg-emerald-600/20 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-12 -right-10 h-40 w-40 rounded-full bg-violet-600/20 blur-3xl" />
+              <div className="relative mb-6">
+                <p className="text-xs uppercase tracking-[0.25em] text-emerald-300/90">Community pulse</p>
+                <h3 className="text-xl font-bold text-white mt-1">Criticizer Meter</h3>
+                <p className="text-sm text-gray-400 mt-1">How confident the community feels about this title</p>
+              </div>
+              <div className="relative flex flex-col lg:flex-row lg:items-stretch gap-6">
+                <div className="relative mx-auto shrink-0 flex items-center justify-center py-2">
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                    <div className="h-40 w-40 rounded-full bg-gradient-to-r from-red-500/15 via-amber-500/15 to-violet-500/20 blur-2xl" />
+                  </div>
+                  <MeterDonut
+                    segments={meterRows}
+                    score={meterOverall.score}
+                    avgStars={meterOverall.avgStars?.toFixed(1)}
+                    hasVotes={meterOverall.hasVotes}
+                  />
+                </div>
+                <ul className="relative flex-1 min-w-0 space-y-3">
+                  {meterRows.map((entry, index) => (
+                    <li
+                      key={entry.name}
+                      className="group rounded-xl border border-white/10 bg-black/40 px-4 py-3 transition hover:border-white/20 hover:bg-black/55"
+                    >
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span
+                            className="text-sm shrink-0"
+                            style={{ color: entry.fill }}
+                          >
+                            {RATING_OPTIONS[index].stars}
+                          </span>
+                          <span className="text-white text-sm font-medium truncate">
+                            {RATING_OPTIONS[index].label}
+                          </span>
+                        </div>
+                        <span
+                          className="text-sm font-bold tabular-nums shrink-0"
+                          style={{ color: entry.fill }}
+                        >
+                          {entry.pct}%
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: entry.pct > 0 ? `${Math.max(entry.pct, 4)}%` : '0%',
+                            backgroundColor: entry.fill,
+                            opacity: entry.pct > 0 ? 1 : 0.35,
+                          }}
+                        />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-violet-950/40 via-[#121212] to-fuchsia-950/30 p-6">
+              <div className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-fuchsia-600/20 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-12 -left-12 h-40 w-40 rounded-full bg-violet-600/15 blur-3xl" />
+              <div className="relative mb-6">
+                <p className="text-xs uppercase tracking-[0.25em] text-fuchsia-300/90">Genre mix</p>
+                <h3 className="text-xl font-bold text-white mt-1">Vibe Chart</h3>
+                <p className="text-sm text-gray-400 mt-1">Hover a slice to explore the genre balance</p>
+              </div>
+              {genreRows.length ? (
+                <div className="relative flex flex-col lg:flex-row lg:items-center gap-8">
+                  <div className="relative mx-auto h-60 w-full max-w-[280px] lg:mx-0 lg:w-[48%] shrink-0 overflow-hidden isolate">
+                    <div
+                      className="pointer-events-none absolute inset-6 rounded-full opacity-60 blur-2xl"
+                      style={{
+                        background: `conic-gradient(${genreRows
+                          .map((g, i) => `${g.fill} ${i === 0 ? 0 : genreRows.slice(0, i).reduce((s, x) => s + x.value, 0)}% ${genreRows.slice(0, i + 1).reduce((s, x) => s + x.value, 0)}%`)
+                          .join(', ')})`,
+                      }}
+                    />
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <defs>
+                          {genreRows.map((entry, index) => (
+                            <linearGradient
+                              key={`grad-${index}`}
+                              id={`genre-grad-${index}`}
+                              x1="0"
+                              y1="0"
+                              x2="1"
+                              y2="1"
+                            >
+                              <stop offset="0%" stopColor={entry.fill} stopOpacity={1} />
+                              <stop offset="100%" stopColor={entry.fill} stopOpacity={0.55} />
+                            </linearGradient>
+                          ))}
+                        </defs>
+                        <Pie
+                          data={genreRows}
+                          dataKey="value"
+                          nameKey="name"
+                          innerRadius={58}
+                          outerRadius={88}
+                          paddingAngle={3}
+                          stroke="rgba(255,255,255,0.08)"
+                          strokeWidth={2}
+                          animationDuration={800}
+                        >
+                          {genreRows.map((entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={`url(#genre-grad-${index})`}
+                              className="outline-none focus:outline-none"
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          content={<GenreTooltip />}
+                          cursor={{ fill: 'rgba(255,255,255,0.06)' }}
+                          wrapperStyle={{
+                            background: 'transparent',
+                            border: 'none',
+                            boxShadow: 'none',
+                            outline: 'none',
+                            zIndex: 50,
+                            padding: 0,
+                          }}
+                          contentStyle={{
+                            background: 'transparent',
+                            border: 'none',
+                            boxShadow: 'none',
+                            padding: 0,
+                          }}
+                          itemStyle={{ color: '#fff' }}
+                          labelStyle={{ color: '#fff' }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                      <div className="text-center px-4">
+                        <p className="text-[10px] uppercase tracking-widest text-gray-500">Genres</p>
+                        <p className="text-2xl font-bold text-white tabular-nums">{genreRows.length}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <ul className="relative flex-1 space-y-4 w-full">
+                    {genreRows.map((entry) => (
+                      <li
+                        key={entry.name}
+                        className="group rounded-xl border border-white/10 bg-black/40 px-4 py-3.5 transition hover:border-white/20 hover:bg-black/55"
+                      >
+                        <div className="flex items-center justify-between gap-3 mb-2">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span
+                              className="h-2.5 w-2.5 rounded-full shrink-0 shadow-[0_0_8px_currentColor]"
+                              style={{ backgroundColor: entry.fill, color: entry.fill }}
+                            />
+                            <span className="text-white text-sm font-medium truncate">{entry.name}</span>
+                          </div>
+                          <span
+                            className="text-sm font-bold tabular-nums shrink-0"
+                            style={{ color: entry.fill }}
+                          >
+                            {entry.value}%
+                          </span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-500 group-hover:opacity-100 opacity-90"
+                            style={{ width: `${entry.value}%`, backgroundColor: entry.fill }}
+                          />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p className="relative text-gray-500 text-sm py-10 text-center">Genre data unavailable for this title.</p>
+              )}
+            </div>
+          </div>
 
           <div className="space-y-4">
             {reviews.length === 0 ? (

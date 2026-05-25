@@ -7,7 +7,7 @@ function formatAuthError(err) {
   if (!err.response) {
     if (err.code === 'ECONNABORTED') return 'Request timed out. Is the backend running on port 8001?';
     if (err.message === 'Network Error') {
-      return `Cannot reach API at ${API_URL}. Start the backend: cd backend → uvicorn server:app --reload --port 8001`;
+      return `Cannot reach API at ${API_URL}. Start backend: cd backend → .\\.venv\\Scripts\\activate → uvicorn server:app --reload --port 8001 (or run .\\start.ps1). Then restart npm start if you changed frontend/.env.`;
     }
     return err.message || 'Network error';
   }

@@ -32,7 +32,6 @@ const Footer = () => {
               <li><Link to="/" className={linkClass}>Home</Link></li>
               <li><Link to="/" className={linkClass}>Movies</Link></li>
               <li><Link to="/" className={linkClass}>TV Shows</Link></li>
-              <li><Link to="/" className={linkClass}>Anime</Link></li>
               <li><Link to="/watchlist" className={linkClass}>My List</Link></li>
             </ul>
           </div>

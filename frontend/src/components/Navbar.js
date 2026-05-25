@@ -54,10 +54,12 @@ const Navbar = ({ user, onLogout, onOpenAuth }) => {
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, []);
 
-  const goToMovie = (id) => {
+  const goToMovie = (item) => {
+    const slug =
+      item.slug || (item.media_type === 'tv' ? `tv-${item.id}` : String(item.id));
     setSearchOpen(false);
     setQuery('');
-    navigate(`/movie/${id}`);
+    navigate(`/movie/${slug}`);
   };
 
   return (
@@ -101,7 +103,7 @@ const Navbar = ({ user, onLogout, onOpenAuth }) => {
                       <li key={`${item.media_type || 'movie'}-${item.id}`}>
                         <button
                           type="button"
-                          onClick={() => goToMovie(item.id)}
+                          onClick={() => goToMovie(item)}
                           className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition text-left"
                         >
                           {item.poster_path ? (
