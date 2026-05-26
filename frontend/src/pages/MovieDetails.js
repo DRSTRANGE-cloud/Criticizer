@@ -9,13 +9,12 @@ import {
   Cell,
 } from 'recharts';
 import api from '../services/api';
-import { FaStar, FaBookmark, FaPlay, FaExternalLinkAlt, FaClock, FaCheckCircle, FaHeart, FaComment, FaArrowLeft } from 'react-icons/fa';
+import { FaStar, FaBookmark, FaPlay, FaExternalLinkAlt, FaCheckCircle, FaHeart, FaComment, FaArrowLeft } from 'react-icons/fa';
 import MovieCard from '../components/MovieCard';
 import { RATING_OPTIONS } from '../constants/ratings';
 
 const WATCH_STATES = [
-  { value: 'watchlist', label: 'Watchlist', icon: FaBookmark },
-  { value: 'watch_later', label: 'Watch Later', icon: FaClock },
+  { value: 'watchlist', label: 'My List', icon: FaBookmark },
   { value: 'watched', label: 'Watched', icon: FaCheckCircle },
 ];
 

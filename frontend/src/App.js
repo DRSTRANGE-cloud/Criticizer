@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import api from './services/api';
 import Navbar from './components/Navbar';
@@ -9,6 +9,8 @@ import Watchlist from './pages/Watchlist';
 import Profile from './pages/Profile';
 import AuthModal from './components/AuthModal';
 import './App.css';
+
+const ChatbotWidget = lazy(() => import('./components/chatbot'));
 
 function App() {
   const [user, setUser] = useState(null);
@@ -78,6 +80,10 @@ function App() {
           />
         )}
         <Footer />
+
+        <Suspense fallback={null}>
+          <ChatbotWidget user={user} />
+        </Suspense>
       </div>
     </Router>
   );

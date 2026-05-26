@@ -7,7 +7,7 @@ import MovieCard from '../components/MovieCard';
 
 const Watchlist = ({ user }) => {
   const navigate = useNavigate();
-  const [items, setItems] = useState({ watchlist: [], watch_later: [], watched: [] });
+  const [items, setItems] = useState({ watchlist: [], watched: [] });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -17,7 +17,7 @@ const Watchlist = ({ user }) => {
   const fetchWatchlist = async () => {
     try {
       const response = await api.get('/api/watchlist/get');
-      setItems(response.data.items || { watchlist: [], watch_later: [], watched: [] });
+      setItems(response.data.items || { watchlist: [], watched: [] });
     } catch (error) {
       console.error('Error fetching watchlist:', error);
     } finally {
@@ -49,19 +49,18 @@ const Watchlist = ({ user }) => {
           Back
         </button>
         <h1 className="text-4xl font-bold text-white mb-8" data-testid="watchlist-title">
-          My Lists
+          My List
         </h1>
 
         {Object.values(items).every((group) => group.length === 0) ? (
           <div className="bg-white/5 rounded-2xl p-12 text-center border border-white/10">
             <p className="text-gray-400 text-xl mb-4">No saved titles yet</p>
-            <p className="text-gray-500">Start adding movies to watchlist, watch later, or watched.</p>
+            <p className="text-gray-500">Save movies to watch or mark them as watched from any title page.</p>
           </div>
         ) : (
           <div className="space-y-10">
             {[
-              ['watchlist', 'Watchlist'],
-              ['watch_later', 'Watch Later'],
+              ['watchlist', 'To watch'],
               ['watched', 'Watched'],
             ].map(([key, label]) => (
               <section key={key}>
@@ -72,14 +71,18 @@ const Watchlist = ({ user }) => {
                 {items[key]?.length ? (
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                     {items[key].map((movie) => (
-                      <motion.div key={`${key}-${movie.id}`} whileHover={{ scale: 1.04 }} transition={{ type: 'spring', stiffness: 400, damping: 28 }}>
+                      <motion.div
+                        key={`${key}-${movie.slug || movie.id}`}
+                        whileHover={{ scale: 1.04 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                      >
                         <MovieCard movie={movie} />
                       </motion.div>
                     ))}
                   </div>
                 ) : (
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-gray-500">
-                    Nothing saved here yet.
+                    Nothing here yet.
                   </div>
                 )}
               </section>

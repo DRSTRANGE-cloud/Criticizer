@@ -411,3 +411,52 @@ async def similar_media(slug: str) -> list[dict[str, Any]]:
 async def similar_movies(movie_id: str) -> list[dict[str, Any]]:
     data = await tmdb_get(f"/movie/{movie_id}/similar", params={"page": "1"}, ttl=600)
     return [normalize_movie(m, media_type="movie") for m in data.get("results", [])[:12]]
+
+
+async def search_person(query: str, page: int = 1) -> list[dict[str, Any]]:
+    data = await tmdb_get(
+        "/search/person",
+        params={"query": query, "page": str(page), "include_adult": "false"},
+        ttl=600,
+    )
+    return [
+        {
+            "id": str(p.get("id")),
+            "name": p.get("name"),
+            "known_for_department": p.get("known_for_department"),
+            "profile_path": _img(p.get("profile_path"), "w185"),
+        }
+        for p in data.get("results", [])[:8]
+    ]
+
+
+async def person_movie_credits(person_id: str) -> list[dict[str, Any]]:
+    data = await tmdb_get(f"/person/{person_id}/movie_credits", ttl=600)
+    cast = data.get("cast") or []
+    cast.sort(key=lambda x: x.get("popularity") or 0, reverse=True)
+    return [normalize_movie(m, media_type="movie") for m in cast[:12]]
+
+
+async def resolve_movie_titles(titles: list[str], limit_per: int = 1) -> list[dict[str, Any]]:
+    """Resolve title strings to TMDB movie cards (best-effort)."""
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for title in titles[:10]:
+        t = (title or "").strip()
+        if not t or len(t) < 2:
+            continue
+        try:
+            movies, _, _, _ = await search_movies(t, page=1)
+            for m in movies[:limit_per]:
+                key = m.get("slug") or m.get("id")
+                if key and key not in seen:
+                    seen.add(key)
+                    out.append(m)
+        except Exception:
+            continue
+    return out
+
+
+async def trending_anime() -> list[dict[str, Any]]:
+    movies, _, _, _ = await discover_anime(page=1)
+    return movies[:12]

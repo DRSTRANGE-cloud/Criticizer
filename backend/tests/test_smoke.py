@@ -65,6 +65,18 @@ def test_ai_recommend_requires_openai():
     assert r.status_code == 503
 
 
+def test_ai_chat_requires_openai_or_runs():
+    r = client.post(
+        "/api/ai/chat",
+        json={"message": "Recommend sci-fi movies", "session_id": "test-session-12345"},
+    )
+    assert r.status_code in (200, 503)
+    if r.status_code == 200:
+        data = r.json()
+        assert "reply" in data
+        assert "recommendations" in data
+
+
 def test_reviews_user_route_exists():
     r = client.get("/api/reviews/user/00000000-0000-0000-0000-000000000000")
     assert r.status_code == 200

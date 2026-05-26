@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.db import reviews_collection, users_collection, watchlist_collection
 from app.services.ratings import RATING_LABELS
+from app.services.recommendations import user_recommendations
 
 router = APIRouter(prefix="/api/user", tags=["user"])
 
@@ -15,9 +16,7 @@ async def get_user_profile(user_id: str):
         raise HTTPException(status_code=404, detail="User not found")
 
     reviews = list(reviews_collection.find({"user_id": user_id}))
-
-    wl = watchlist_collection.find_one({"user_id": user_id})
-    watchlist_count = len(wl.get("movie_ids", [])) if wl else 0
+    watchlist_count = watchlist_collection.count_documents({"user_id": user_id})
 
     genres = [r.get("primary_genre") for r in reviews if r.get("primary_genre")]
     favorite_category = None
@@ -40,3 +39,16 @@ async def get_user_profile(user_id: str):
         "favorite_category": favorite_category,
         "rating_breakdown": rating_breakdown,
     }
+
+
+@router.get("/recommendations/{user_id}")
+async def get_user_recommendations(user_id: str):
+    user = users_collection.find_one({"user_id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    try:
+        movies = await user_recommendations(user_id)
+        return {"movies": movies, "error": None}
+    except Exception as e:
+        return {"movies": [], "error": str(e)}

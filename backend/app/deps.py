@@ -5,6 +5,7 @@ from app.db import users_collection
 from app.utils.security import JWTError, decode_token
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="api/auth/login", auto_error=False)
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
@@ -25,4 +26,19 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     if not user:
         raise credentials_exception
     return user
+
+
+async def get_optional_user(
+    token: str | None = Depends(oauth2_scheme_optional),
+) -> dict | None:
+    if not token:
+        return None
+    try:
+        payload = decode_token(token)
+        user_id: str | None = payload.get("sub")
+        if not user_id:
+            return None
+    except JWTError:
+        return None
+    return users_collection.find_one({"user_id": user_id})
 

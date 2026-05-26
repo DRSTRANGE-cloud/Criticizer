@@ -39,3 +39,4 @@ class TTLCache(Generic[T]):
 
 tmdb_cache: TTLCache[Any] = TTLCache(600)  # 10 min
 watchmode_cache: TTLCache[Any] = TTLCache(900)  # 15 min
+ai_response_cache: TTLCache[Any] = TTLCache(300)  # 5 min — repeated chat prompts

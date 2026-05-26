@@ -34,6 +34,9 @@ class Settings:
     watchmode_base_url: str = os.getenv("WATCHMODE_BASE_URL", "https://api.watchmode.com/v1")
 
     openai_api_key: str | None = os.getenv("OPENAI_API_KEY")
+    openai_chat_model: str = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")
+    ai_chat_rate_limit: int = int(os.getenv("AI_CHAT_RATE_LIMIT", "30"))
+    ai_chat_rate_window_seconds: int = int(os.getenv("AI_CHAT_RATE_WINDOW_SECONDS", "60"))
 
     cors_allow_origins: list[str] = field(default_factory=_default_cors_origins)
 

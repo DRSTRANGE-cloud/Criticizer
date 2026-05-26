@@ -12,6 +12,7 @@ const Profile = ({ user }) => {
   const [profile, setProfile] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [watchlistMovies, setWatchlistMovies] = useState([]);
+  const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const isSelf = user?.user_id === userId;
@@ -48,16 +49,29 @@ const Profile = ({ user }) => {
     }
   }, [isSelf]);
 
+  const fetchRecommendations = useCallback(async () => {
+    if (!isSelf) {
+      setRecommendations([]);
+      return;
+    }
+    try {
+      const response = await api.get(`/api/user/recommendations/${userId}`);
+      setRecommendations(response.data.movies || []);
+    } catch {
+      setRecommendations([]);
+    }
+  }, [isSelf, userId]);
+
   useEffect(() => {
     setLoading(true);
     const run = async () => {
       await fetchProfile();
       await fetchUserReviews();
-      await fetchWatchlist();
+      await Promise.all([fetchWatchlist(), fetchRecommendations()]);
       setLoading(false);
     };
     run();
-  }, [fetchProfile, fetchUserReviews, fetchWatchlist]);
+  }, [fetchProfile, fetchUserReviews, fetchWatchlist, fetchRecommendations]);
 
   if (loading) {
     return (
@@ -134,7 +148,7 @@ const Profile = ({ user }) => {
             <p className="text-4xl font-bold text-white mt-1">{profile.total_reviews}</p>
           </div>
           <div className="bg-gradient-to-br from-emerald-900/40 to-cyan-900/30 rounded-2xl p-6 border border-white/10">
-            <p className="text-gray-400 text-sm">Watchlist</p>
+            <p className="text-gray-400 text-sm">My List</p>
             <p className="text-4xl font-bold text-white mt-1">{profile.watchlist_count ?? 0}</p>
           </div>
           <div className="bg-gradient-to-br from-amber-900/40 to-orange-900/30 rounded-2xl p-6 border border-white/10">
@@ -158,12 +172,33 @@ const Profile = ({ user }) => {
           </div>
         </div>
 
+        {isSelf && recommendations.length > 0 && (
+          <section className="mb-12">
+            <h2 className="text-2xl font-bold text-white mb-2">Recommended for you</h2>
+            <p className="text-gray-400 text-sm mb-6">
+              Based on your reviews
+              {profile.favorite_category ? ` and love of ${profile.favorite_category}` : ''} and saved titles.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+              {recommendations.map((m) => (
+                <motion.div
+                  key={m.slug || m.id}
+                  whileHover={{ scale: 1.04 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                >
+                  <MovieCard movie={m} />
+                </motion.div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {isSelf && watchlistMovies.length > 0 && (
           <section className="mb-12">
-            <h2 className="text-2xl font-bold text-white mb-6">Your watchlist</h2>
+            <h2 className="text-2xl font-bold text-white mb-6">My List</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
               {watchlistMovies.map((m) => (
-                <motion.div key={m.id} whileHover={{ scale: 1.04 }} transition={{ type: 'spring', stiffness: 400, damping: 28 }}>
+                <motion.div key={m.slug || m.id} whileHover={{ scale: 1.04 }} transition={{ type: 'spring', stiffness: 400, damping: 28 }}>
                   <MovieCard movie={m} />
                 </motion.div>
               ))}

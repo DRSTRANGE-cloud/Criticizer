@@ -64,11 +64,12 @@ function RowSection({ id, title, movies, loading }) {
   );
 }
 
-const KEEP_SCROLL_LIMIT = 20;
-
 const Home = ({ user, onOpenAuth }) => {
   const [trendingMovies, setTrendingMovies] = useState([]);
   const [discoverMovies, setDiscoverMovies] = useState([]);
+  const [discoverPage, setDiscoverPage] = useState(1);
+  const [discoverTotalPages, setDiscoverTotalPages] = useState(1);
+  const [loadingMoreDiscover, setLoadingMoreDiscover] = useState(false);
   const [topRatedMovies, setTopRatedMovies] = useState([]);
   const [mixedTrending, setMixedTrending] = useState([]);
   const [categoryRows, setCategoryRows] = useState({
@@ -77,6 +78,7 @@ const Home = ({ user, onOpenAuth }) => {
     kids: [],
     tv: [],
   });
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState(null);
   const [discoverError, setDiscoverError] = useState(null);
@@ -86,38 +88,83 @@ const Home = ({ user, onOpenAuth }) => {
   const [posting, setPosting] = useState(false);
 
   useEffect(() => {
-    const load = async () => {
+    const loadPrimary = async () => {
       try {
-        const [trendRes, discRes, topRes, mixedRes, bollywoodRes, hollywoodRes, kidsRes, tvRes] = await Promise.all([
+        const [trendRes, discRes, topRes, mixedRes] = await Promise.all([
           api.get('/api/movies/trending'),
           api.get('/api/movies/discover?page=1'),
           api.get('/api/movies/top-rated?page=1'),
           api.get('/api/movies/trending-mixed'),
-          api.get('/api/movies/category/bollywood?page=1'),
-          api.get('/api/movies/category/hollywood?page=1'),
-          api.get('/api/movies/category/kids?page=1'),
-          api.get('/api/movies/category/tv?page=1'),
         ]);
         setTrendingMovies(trendRes.data.movies || []);
         setApiError(trendRes.data.error || null);
         setDiscoverMovies(discRes.data.movies || []);
+        setDiscoverPage(discRes.data.page || 1);
+        setDiscoverTotalPages(discRes.data.total_pages || 1);
         setDiscoverError(discRes.data.error || null);
         setTopRatedMovies(topRes.data.movies || []);
         setMixedTrending(mixedRes.data.movies || []);
-        setCategoryRows({
-          bollywood: bollywoodRes.data.movies || [],
-          hollywood: hollywoodRes.data.movies || [],
-          kids: kidsRes.data.movies || [],
-          tv: tvRes.data.movies || [],
-        });
       } catch (error) {
         setApiError(error.response?.data?.detail || error.message);
       } finally {
         setLoading(false);
       }
     };
-    load();
+    loadPrimary();
   }, []);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      setCategoriesLoading(true);
+      try {
+        const [bollywoodRes, hollywoodRes, kidsRes, tvRes] = await Promise.all([
+          api.get('/api/movies/category/bollywood?page=1'),
+          api.get('/api/movies/category/hollywood?page=1'),
+          api.get('/api/movies/category/kids?page=1'),
+          api.get('/api/movies/category/tv?page=1'),
+        ]);
+        setCategoryRows({
+          bollywood: bollywoodRes.data.movies || [],
+          hollywood: hollywoodRes.data.movies || [],
+          kids: kidsRes.data.movies || [],
+          tv: tvRes.data.movies || [],
+        });
+      } catch {
+        /* category rows are optional */
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+    if (!loading) loadCategories();
+  }, [loading]);
+
+  const loadMoreDiscover = async () => {
+    if (loadingMoreDiscover || discoverPage >= discoverTotalPages) return;
+    setLoadingMoreDiscover(true);
+    try {
+      const nextPage = discoverPage + 1;
+      const res = await api.get(`/api/movies/discover?page=${nextPage}`);
+      const incoming = res.data.movies || [];
+      setDiscoverMovies((prev) => {
+        const seen = new Set(prev.map((m) => m.slug || m.id));
+        const merged = [...prev];
+        for (const m of incoming) {
+          const key = m.slug || m.id;
+          if (!key || seen.has(key)) continue;
+          seen.add(key);
+          merged.push(m);
+        }
+        return merged;
+      });
+      setDiscoverPage(res.data.page || nextPage);
+      setDiscoverTotalPages(res.data.total_pages || discoverTotalPages);
+      if (res.data.error) setDiscoverError(res.data.error);
+    } catch (error) {
+      setDiscoverError(error.response?.data?.detail || error.message);
+    } finally {
+      setLoadingMoreDiscover(false);
+    }
+  };
 
   const moodMovies = useMemo(() => {
     const map = {
@@ -129,11 +176,6 @@ const Home = ({ user, onOpenAuth }) => {
     };
     return map[activeMood] || discoverMovies;
   }, [activeMood, discoverMovies, categoryRows, topRatedMovies]);
-
-  const keepScrollingMovies = useMemo(
-    () => discoverMovies.slice(0, KEEP_SCROLL_LIMIT),
-    [discoverMovies]
-  );
 
   const picks = useMemo(() => {
     const merged = [...trendingMovies, ...topRatedMovies.filter((m) => (m.vote_average || 0) >= 7.5)];
@@ -301,7 +343,7 @@ const Home = ({ user, onOpenAuth }) => {
               <h3 className="mt-2 text-2xl font-bold text-white">Fast ways to decide</h3>
               <div className="mt-5 space-y-4">
                 {[
-                  ['Save for later', 'Build lists for tonight, later, and already watched.'],
+                  ['Save to My List', 'Track what you want to watch and what you have finished.'],
                   ['Read top reviews', 'Jump to the strongest community take before committing.'],
                   ['See where to watch', 'Streaming options are surfaced right on the movie page.'],
                 ].map(([title, body]) => (
@@ -317,10 +359,10 @@ const Home = ({ user, onOpenAuth }) => {
           <RowSection id="movie-carousel-trending" title="Trending" movies={trendingMovies} loading={false} />
           <RowSection id="movie-carousel-popular" title="Popular" movies={discoverMovies} loading={false} />
           <RowSection id="movie-carousel-top-rated" title="Top Rated" movies={topRatedMovies} loading={false} />
-          <RowSection id="movie-carousel-bollywood" title="Bollywood" movies={categoryRows.bollywood} loading={false} />
-          <RowSection id="movie-carousel-hollywood" title="Hollywood" movies={categoryRows.hollywood} loading={false} />
-          <RowSection id="movie-carousel-kids" title="Animated Movies" movies={categoryRows.kids} loading={false} />
-          <RowSection id="movie-carousel-tv" title="TV Shows" movies={categoryRows.tv} loading={false} />
+          <RowSection id="movie-carousel-bollywood" title="Bollywood" movies={categoryRows.bollywood} loading={categoriesLoading} />
+          <RowSection id="movie-carousel-hollywood" title="Hollywood" movies={categoryRows.hollywood} loading={categoriesLoading} />
+          <RowSection id="movie-carousel-kids" title="Animated Movies" movies={categoryRows.kids} loading={categoriesLoading} />
+          <RowSection id="movie-carousel-tv" title="TV Shows" movies={categoryRows.tv} loading={categoriesLoading} />
           <RowSection id="movie-carousel-mixed" title="What Everyone Is Talking About" movies={mixedTrending} loading={false} />
 
           <section className="rounded-3xl border border-white/10 bg-[#101010]/90 p-6">
@@ -378,7 +420,7 @@ const Home = ({ user, onOpenAuth }) => {
               {discoverError && <span className="text-xs text-amber-400 max-w-md text-right">{discoverError}</span>}
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-              {keepScrollingMovies.map((movie) => (
+              {discoverMovies.map((movie) => (
                 <motion.div
                   key={`d-${movie.slug || movie.id}`}
                   whileHover={{ scale: 1.04 }}
@@ -388,10 +430,17 @@ const Home = ({ user, onOpenAuth }) => {
                 </motion.div>
               ))}
             </div>
-            {discoverMovies.length > KEEP_SCROLL_LIMIT && (
-              <p className="mt-6 text-center text-sm text-gray-500">
-                Showing {KEEP_SCROLL_LIMIT} titles — explore rows above for more.
-              </p>
+            {discoverPage < discoverTotalPages && (
+              <div className="mt-8 text-center">
+                <button
+                  type="button"
+                  onClick={loadMoreDiscover}
+                  disabled={loadingMoreDiscover}
+                  className="rounded-full border border-white/15 bg-white/5 px-6 py-3 text-sm font-medium text-white transition hover:border-fuchsia-500/50 hover:bg-fuchsia-600/20 disabled:opacity-50"
+                >
+                  {loadingMoreDiscover ? 'Loading…' : 'Load more titles'}
+                </button>
+              </div>
             )}
           </section>
         </div>
@@ -409,8 +458,8 @@ const Home = ({ user, onOpenAuth }) => {
                 to: 'to-fuchsia-800/80',
               },
               {
-                title: 'Your saved states',
-                body: 'Organize titles into watchlist, watch later, and watched with one quick tap.',
+                title: 'My List',
+                body: 'Save titles to watch and mark what you have finished with one quick tap.',
                 from: 'from-red-900/80',
                 to: 'to-red-700/80',
               },
