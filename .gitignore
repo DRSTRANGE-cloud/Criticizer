@@ -3,4 +3,5 @@ node_modules/
 dist/
 build/
 .venv/
-.env
+backend/.env
+frontend/.env
