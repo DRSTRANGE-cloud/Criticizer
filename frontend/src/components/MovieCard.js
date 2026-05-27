@@ -6,9 +6,12 @@ const MovieCard = ({ movie }) => {
   const navigate = useNavigate();
   if (!movie) return null;
 
-  const imageUrl = movie.poster_path?.startsWith('http')
-    ? movie.poster_path
-    : `https://image.tmdb.org/t/p/w500${movie.poster_path}`;
+  const fallbackImage = 'https://via.placeholder.com/500x750?text=No+Image';
+  const imageUrl = movie.poster_path
+    ? movie.poster_path.startsWith('http')
+      ? movie.poster_path
+      : `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+    : fallbackImage;
 
   const slug =
     movie.slug || (movie.media_type === 'tv' ? `tv-${movie.id}` : String(movie.id));
@@ -23,10 +26,10 @@ const MovieCard = ({ movie }) => {
           src={imageUrl}
           alt={movie.title}
           loading="lazy"
+          decoding="async"
           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.08]"
           onError={(e) => {
-            e.currentTarget.src =
-              'https://via.placeholder.com/500x750?text=No+Image';
+            e.currentTarget.src = fallbackImage;
           }}
         />
 

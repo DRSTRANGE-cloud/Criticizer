@@ -459,7 +459,7 @@ const Home = ({ user, onOpenAuth }) => {
               {!user && (
                 <button
                   onClick={() => onOpenAuth('signup')}
-                  className="bg-gradient-to-r from-red-600 to-fuchsia-600 text-white px-8 py-4 rounded-2xl text-xl font-semibold hover:opacity-90 transition shadow-lg"
+                  className="ml-8 bg-gradient-to-r from-red-600 to-fuchsia-600 text-white px-8 py-4 rounded-2xl text-xl font-semibold hover:opacity-90 transition shadow-lg"
                   data-testid="hero-signup-button"
                 >
                   Get Started

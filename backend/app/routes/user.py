@@ -1,8 +1,9 @@
 from collections import Counter
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.db import reviews_collection, users_collection, watchlist_collection
+from app.deps import get_current_user
 from app.services.ratings import RATING_LABELS
 from app.services.recommendations import user_recommendations
 
@@ -10,7 +11,10 @@ router = APIRouter(prefix="/api/user", tags=["user"])
 
 
 @router.get("/profile/{user_id}")
-async def get_user_profile(user_id: str):
+async def get_user_profile(user_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Profile is private")
+
     user = users_collection.find_one({"user_id": user_id})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -42,7 +46,10 @@ async def get_user_profile(user_id: str):
 
 
 @router.get("/recommendations/{user_id}")
-async def get_user_recommendations(user_id: str):
+async def get_user_recommendations(user_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Recommendations are private")
+
     user = users_collection.find_one({"user_id": user_id})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

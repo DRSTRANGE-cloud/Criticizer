@@ -63,6 +63,10 @@ const Profile = ({ user }) => {
   }, [isSelf, userId]);
 
   useEffect(() => {
+    if (!user || !isSelf) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const run = async () => {
       await fetchProfile();
@@ -71,7 +75,16 @@ const Profile = ({ user }) => {
       setLoading(false);
     };
     run();
-  }, [fetchProfile, fetchUserReviews, fetchWatchlist, fetchRecommendations]);
+  }, [user, isSelf, fetchProfile, fetchUserReviews, fetchWatchlist, fetchRecommendations]);
+
+  if (!user || !isSelf) {
+    return (
+      <div className="min-h-screen bg-[#0B0B0B] flex flex-col items-center justify-center pt-20 px-4">
+        <div className="text-white text-2xl mb-3">Profile is private</div>
+        <p className="text-gray-400 text-center max-w-md">Sign in to view your Criticizer profile.</p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

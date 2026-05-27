@@ -68,7 +68,7 @@ function App() {
           <Route path="/" element={<Home user={user} onOpenAuth={openAuthModal} />} />
           <Route path="/movie/:id" element={<MovieDetails user={user} onOpenAuth={openAuthModal} />} />
           <Route path="/watchlist" element={user ? <Watchlist user={user} /> : <Navigate to="/" replace />} />
-          <Route path="/profile/:userId" element={<Profile user={user} />} />
+          <Route path="/profile/:userId" element={user ? <Profile user={user} /> : <Navigate to="/" replace />} />
         </Routes>
 
         {showAuthModal && (
