@@ -33,8 +33,14 @@ class Settings:
     watchmode_api_key: str | None = os.getenv("WATCHMODE_API_KEY")
     watchmode_base_url: str = os.getenv("WATCHMODE_BASE_URL", "https://api.watchmode.com/v1")
 
-    openai_api_key: str | None = os.getenv("OPENAI_API_KEY")
-    openai_chat_model: str = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")
+    groq_api_key: str | None = os.getenv("GROQ_API_KEY") or os.getenv("OPENAI_API_KEY")
+    groq_base_url: str = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
+    groq_chat_model: str = (
+        os.getenv("GROQ_CHAT_MODEL")
+        or os.getenv("GROQ_MODEL")
+        or os.getenv("OPENAI_CHAT_MODEL")
+        or "llama-3.1-8b-instant"
+    )
     ai_chat_rate_limit: int = int(os.getenv("AI_CHAT_RATE_LIMIT", "30"))
     ai_chat_rate_window_seconds: int = int(os.getenv("AI_CHAT_RATE_WINDOW_SECONDS", "60"))
 
@@ -42,4 +48,3 @@ class Settings:
 
 
 settings = Settings()
-

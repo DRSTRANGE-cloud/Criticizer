@@ -2,7 +2,16 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import api from '../services/api';
 import MovieCard from '../components/MovieCard';
-import { FaChevronLeft, FaChevronRight, FaHeart, FaReply, FaPaperPlane } from 'react-icons/fa';
+import {
+  FaCalendarAlt,
+  FaChevronLeft,
+  FaChevronRight,
+  FaHeart,
+  FaMapMarkerAlt,
+  FaPaperPlane,
+  FaReply,
+  FaTicketAlt,
+} from 'react-icons/fa';
 
 function SkeletonCard() {
   return (
@@ -64,6 +73,115 @@ function RowSection({ id, title, movies, loading }) {
   );
 }
 
+function formatReleaseDate(value) {
+  if (!value) return 'Date TBA';
+  const d = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function inferRegionFromAddress(address) {
+  const text = address.toLowerCase();
+  if (/\b(india|bharat|mumbai|delhi|bengaluru|bangalore|pune|hyderabad|kolkata|chennai)\b/.test(text)) {
+    return 'IN';
+  }
+  if (/\b(canada|toronto|vancouver|montreal)\b/.test(text)) return 'CA';
+  if (/\b(uk|united kingdom|london|manchester)\b/.test(text)) return 'GB';
+  return 'US';
+}
+
+function CinemaReleaseSection({
+  address,
+  addressDraft,
+  onAddressDraftChange,
+  onSaveAddress,
+  movies,
+  upcoming,
+  loading,
+}) {
+  const openCinemaSearch = (movie) => {
+    const area = address || addressDraft || 'near me';
+    const query = `${movie.title} tickets cinemas near ${area}`;
+    window.open(`https://www.google.com/maps/search/${encodeURIComponent(query)}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const displayMovies = (movies.length ? movies : upcoming).slice(0, 4);
+
+  return (
+    <section className="rounded-3xl border border-white/10 bg-[#101010]/90 p-6 overflow-hidden">
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
+        <div>
+          <p className="text-sm uppercase tracking-[0.25em] text-red-300/80">In Cinemas</p>
+          <h2 className="mt-2 text-3xl font-bold text-white">Release dates near your area</h2>
+        </div>
+        <form onSubmit={onSaveAddress} className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+          <div className="relative flex-1 lg:w-80">
+            <FaMapMarkerAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+            <input
+              value={addressDraft}
+              onChange={(e) => onAddressDraftChange(e.target.value)}
+              placeholder="Enter city or address"
+              className="w-full rounded-xl bg-black/45 border border-white/10 px-11 py-3 text-white outline-none focus:border-red-500/70"
+              maxLength={120}
+            />
+          </div>
+          <button
+            type="submit"
+            className="rounded-xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-500"
+          >
+            Save Area
+          </button>
+        </form>
+      </div>
+
+      {address && (
+        <p className="mt-3 text-sm text-gray-400">
+          Showing cinema searches for <span className="text-white">{address}</span>
+        </p>
+      )}
+
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        {loading
+          ? [1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-48 rounded-2xl border border-white/10 bg-white/5 animate-pulse" />
+            ))
+          : displayMovies.map((movie) => (
+              <div key={`cinema-${movie.slug || movie.id}`} className="rounded-2xl border border-white/10 bg-black/30 overflow-hidden">
+                <div
+                  className="h-44 bg-cover bg-center"
+                  style={{
+                    backgroundImage: movie.backdrop_path || movie.poster_path
+                      ? `linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.08)), url(${movie.backdrop_path || movie.poster_path})`
+                      : undefined,
+                  }}
+                />
+                <div className="p-4">
+                  <h3 className="text-white font-semibold leading-snug line-clamp-2 min-h-[2.75rem]">{movie.title}</h3>
+                  <div className="mt-3 flex items-center gap-2 text-sm text-gray-400">
+                    <FaCalendarAlt className="text-red-300" />
+                    <span>{formatReleaseDate(movie.release_date)}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openCinemaSearch(movie)}
+                    disabled={!address && !addressDraft}
+                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/40 bg-red-600/15 px-4 py-2.5 text-sm font-semibold text-red-100 transition hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <FaTicketAlt className="text-xs" />
+                    View Cinemas
+                  </button>
+                </div>
+              </div>
+            ))}
+      </div>
+    </section>
+  );
+}
+
 const Home = ({ user, onOpenAuth }) => {
   const [trendingMovies, setTrendingMovies] = useState([]);
   const [discoverMovies, setDiscoverMovies] = useState([]);
@@ -72,7 +190,14 @@ const Home = ({ user, onOpenAuth }) => {
   const [loadingMoreDiscover, setLoadingMoreDiscover] = useState(false);
   const [topRatedMovies, setTopRatedMovies] = useState([]);
   const [mixedTrending, setMixedTrending] = useState([]);
+  const [nowPlayingMovies, setNowPlayingMovies] = useState([]);
+  const [upcomingMovies, setUpcomingMovies] = useState([]);
+  const [theaterLoading, setTheaterLoading] = useState(true);
+  const [heroIndex, setHeroIndex] = useState(0);
+  const [localAddress, setLocalAddress] = useState(() => localStorage.getItem('criticizer_local_address') || '');
+  const [addressDraft, setAddressDraft] = useState(() => localStorage.getItem('criticizer_local_address') || '');
   const [categoryRows, setCategoryRows] = useState({
+    anime: [],
     bollywood: [],
     hollywood: [],
     kids: [],
@@ -90,11 +215,13 @@ const Home = ({ user, onOpenAuth }) => {
   useEffect(() => {
     const loadPrimary = async () => {
       try {
-        const [trendRes, discRes, topRes, mixedRes] = await Promise.all([
+        const region = inferRegionFromAddress(localAddress);
+        const [trendRes, discRes, topRes, mixedRes, theaterRes] = await Promise.all([
           api.get('/api/movies/trending'),
           api.get('/api/movies/discover?page=1'),
           api.get('/api/movies/top-rated?page=1'),
           api.get('/api/movies/trending-mixed'),
+          api.get(`/api/movies/theaters?region=${region}&page=1`),
         ]);
         setTrendingMovies(trendRes.data.movies || []);
         setApiError(trendRes.data.error || null);
@@ -104,26 +231,42 @@ const Home = ({ user, onOpenAuth }) => {
         setDiscoverError(discRes.data.error || null);
         setTopRatedMovies(topRes.data.movies || []);
         setMixedTrending(mixedRes.data.movies || []);
+        setNowPlayingMovies(theaterRes.data.now_playing || []);
+        setUpcomingMovies(theaterRes.data.upcoming || []);
       } catch (error) {
         setApiError(error.response?.data?.detail || error.message);
       } finally {
         setLoading(false);
+        setTheaterLoading(false);
       }
     };
     loadPrimary();
+  }, [localAddress]);
+
+  useEffect(() => {
+    setHeroIndex(0);
+  }, [nowPlayingMovies, trendingMovies]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setHeroIndex((index) => index + 1);
+    }, 30000);
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
     const loadCategories = async () => {
       setCategoriesLoading(true);
       try {
-        const [bollywoodRes, hollywoodRes, kidsRes, tvRes] = await Promise.all([
+        const [animeRes, bollywoodRes, hollywoodRes, kidsRes, tvRes] = await Promise.all([
+          api.get('/api/movies/category/anime?page=1'),
           api.get('/api/movies/category/bollywood?page=1'),
           api.get('/api/movies/category/hollywood?page=1'),
           api.get('/api/movies/category/kids?page=1'),
           api.get('/api/movies/category/tv?page=1'),
         ]);
         setCategoryRows({
+          anime: animeRes.data.movies || [],
           bollywood: bollywoodRes.data.movies || [],
           hollywood: hollywoodRes.data.movies || [],
           kids: kidsRes.data.movies || [],
@@ -172,6 +315,7 @@ const Home = ({ user, onOpenAuth }) => {
       action: categoryRows.hollywood,
       feelgood: topRatedMovies,
       animated: categoryRows.kids,
+      anime: categoryRows.anime,
       series: categoryRows.tv,
     };
     return map[activeMood] || discoverMovies;
@@ -190,6 +334,17 @@ const Home = ({ user, onOpenAuth }) => {
     }
     return uniq;
   }, [trendingMovies, topRatedMovies]);
+
+  const heroMovies = useMemo(() => {
+    const seen = new Set();
+    const merged = [...nowPlayingMovies, ...trendingMovies, ...mixedTrending];
+    return merged.filter((item) => {
+      const key = item?.slug || item?.id;
+      if (!key || seen.has(key) || !(item.backdrop_path || item.poster_path)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [nowPlayingMovies, trendingMovies, mixedTrending]);
 
   const loadDiscussion = useCallback(async () => {
     const target = trendingMovies[0]?.slug || trendingMovies[0]?.id;
@@ -229,6 +384,14 @@ const Home = ({ user, onOpenAuth }) => {
     loadDiscussion();
   };
 
+  const saveAddress = (event) => {
+    event.preventDefault();
+    const value = addressDraft.trim();
+    if (!value) return;
+    localStorage.setItem('criticizer_local_address', value);
+    setLocalAddress(value);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0B0B0B] pt-24 pb-16">
@@ -244,7 +407,8 @@ const Home = ({ user, onOpenAuth }) => {
     );
   }
 
-  const featuredMovie = trendingMovies[0];
+  const featuredMovie = heroMovies.length ? heroMovies[heroIndex % heroMovies.length] : trendingMovies[0];
+  const featuredImage = featuredMovie?.backdrop_path || featuredMovie?.poster_path;
 
   return (
     <motion.div
@@ -265,8 +429,8 @@ const Home = ({ user, onOpenAuth }) => {
       <div
         className="relative h-screen bg-cover bg-center bg-[#0B0B0B]"
         style={{
-          backgroundImage: featuredMovie?.backdrop_path
-            ? `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.92)), url(${featuredMovie.backdrop_path})`
+          backgroundImage: featuredImage
+            ? `linear-gradient(to bottom, rgba(0,0,0,0.28), rgba(0,0,0,0.92)), url(${featuredImage})`
             : undefined,
         }}
       >
@@ -280,6 +444,18 @@ const Home = ({ user, onOpenAuth }) => {
                 Ready to explore?{' '}
                 {user ? 'Start browsing movies below.' : 'Sign up to leave reviews and build your watchlist.'}
               </p>
+              {featuredMovie && (
+                <div className="mb-8 inline-flex max-w-full items-center gap-3 rounded-2xl border border-white/15 bg-black/35 px-4 py-3 backdrop-blur">
+                  {featuredMovie.poster_path && (
+                    <img src={featuredMovie.poster_path} alt="" className="h-16 w-11 rounded-md object-cover" loading="lazy" />
+                  )}
+                  <div className="min-w-0 text-left">
+                    <p className="text-xs uppercase tracking-[0.2em] text-red-200/80">Now featuring</p>
+                    <p className="truncate text-white font-semibold">{featuredMovie.title}</p>
+                    <p className="text-sm text-gray-300">{formatReleaseDate(featuredMovie.release_date)}</p>
+                  </div>
+                </div>
+              )}
               {!user && (
                 <button
                   onClick={() => onOpenAuth('signup')}
@@ -309,6 +485,7 @@ const Home = ({ user, onOpenAuth }) => {
                   ['all', 'All'],
                   ['action', 'Action Night'],
                   ['feelgood', 'Feel Good'],
+                  ['anime', 'Anime'],
                   ['animated', 'Animated'],
                   ['series', 'Series'],
                 ].map(([key, label]) => (
@@ -356,9 +533,21 @@ const Home = ({ user, onOpenAuth }) => {
             </div>
           </section>
 
+          <CinemaReleaseSection
+            address={localAddress}
+            addressDraft={addressDraft}
+            onAddressDraftChange={setAddressDraft}
+            onSaveAddress={saveAddress}
+            movies={nowPlayingMovies}
+            upcoming={upcomingMovies}
+            loading={theaterLoading}
+          />
+
           <RowSection id="movie-carousel-trending" title="Trending" movies={trendingMovies} loading={false} />
+          <RowSection id="movie-carousel-now-playing" title="Now Playing" movies={nowPlayingMovies} loading={theaterLoading} />
           <RowSection id="movie-carousel-popular" title="Popular" movies={discoverMovies} loading={false} />
           <RowSection id="movie-carousel-top-rated" title="Top Rated" movies={topRatedMovies} loading={false} />
+          <RowSection id="movie-carousel-anime" title="Anime" movies={categoryRows.anime} loading={categoriesLoading} />
           <RowSection id="movie-carousel-bollywood" title="Bollywood" movies={categoryRows.bollywood} loading={categoriesLoading} />
           <RowSection id="movie-carousel-hollywood" title="Hollywood" movies={categoryRows.hollywood} loading={categoriesLoading} />
           <RowSection id="movie-carousel-kids" title="Animated Movies" movies={categoryRows.kids} loading={categoriesLoading} />

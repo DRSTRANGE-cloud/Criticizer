@@ -1,4 +1,5 @@
 import asyncio
+import re
 
 from fastapi import APIRouter
 
@@ -15,9 +16,11 @@ from app.services.tmdb import (
     search_movies,
     search_multi,
     similar_media,
+    now_playing_movies,
     top_rated_movies,
     trending_movies,
     trending_mixed,
+    upcoming_movies,
 )
 from app.services.watchmode import fetch_watchmode_sources
 
@@ -26,6 +29,11 @@ router = APIRouter(prefix="/api/movies", tags=["movies"])
 GENRE_MAP = {
     "kids": "16",
 }
+
+
+def _safe_provider_error(message: str, exc: Exception) -> str:
+    detail = re.sub(r"api_key=[^&\s']+", "api_key=***", str(exc))
+    return f"{message} {detail}"
 
 
 def _dist_percentages(dist: dict[str, int]) -> dict[str, float]:
@@ -41,10 +49,9 @@ async def get_trending_movies():
     except Exception as e:
         return {
             "movies": [],
-            "error": (
-                "Movie provider unavailable. "
-                "Set a valid TMDB_API_KEY in backend/.env. "
-                f"Details: {str(e)}"
+            "error": _safe_provider_error(
+                "Movie provider unavailable. Set a valid TMDB_API_KEY in backend/.env. Details:",
+                e,
             ),
         }
 
@@ -54,7 +61,7 @@ async def get_trending_mixed():
     try:
         return {"movies": await trending_mixed(), "error": None}
     except Exception as e:
-        return {"movies": [], "error": f"Trending unavailable. {str(e)}"}
+        return {"movies": [], "error": _safe_provider_error("Trending unavailable.", e)}
 
 
 @router.get("/top-rated")
@@ -69,7 +76,44 @@ async def get_top_rated_movies(page: int = 1):
             "error": None,
         }
     except Exception as e:
-        return {"movies": [], "page": page, "total_pages": 0, "total_results": 0, "error": str(e)}
+        return {
+            "movies": [],
+            "page": page,
+            "total_pages": 0,
+            "total_results": 0,
+            "error": _safe_provider_error("Top rated unavailable.", e),
+        }
+
+
+@router.get("/theaters")
+async def get_theater_movies(region: str = "US", page: int = 1):
+    try:
+        safe_region = (region or "US").strip().upper()[:2] or "US"
+        now_data, upcoming_data = await asyncio.gather(
+            now_playing_movies(region=safe_region, page=page),
+            upcoming_movies(region=safe_region, page=page),
+        )
+        now_movies, cur_page, now_total_pages, now_total_results = now_data
+        upcoming, _, upcoming_total_pages, upcoming_total_results = upcoming_data
+        return {
+            "now_playing": now_movies,
+            "upcoming": upcoming,
+            "page": cur_page,
+            "total_pages": max(now_total_pages, upcoming_total_pages),
+            "total_results": now_total_results + upcoming_total_results,
+            "region": safe_region,
+            "error": None,
+        }
+    except Exception as e:
+        return {
+            "now_playing": [],
+            "upcoming": [],
+            "page": page,
+            "total_pages": 0,
+            "total_results": 0,
+            "region": (region or "US").strip().upper()[:2] or "US",
+            "error": _safe_provider_error("Theater releases unavailable.", e),
+        }
 
 
 @router.get("/category/{category}")
@@ -102,7 +146,13 @@ async def get_movies_by_category(category: str, page: int = 1):
             "error": None,
         }
     except Exception as e:
-        return {"movies": [], "page": page, "total_pages": 0, "total_results": 0, "error": str(e)}
+        return {
+            "movies": [],
+            "page": page,
+            "total_pages": 0,
+            "total_results": 0,
+            "error": _safe_provider_error("Category unavailable.", e),
+        }
 
 
 @router.get("/search")
@@ -122,7 +172,7 @@ async def search(query: str, page: int = 1):
             "page": page,
             "total_pages": 0,
             "total_results": 0,
-            "error": f"Search unavailable. {str(e)}",
+            "error": _safe_provider_error("Search unavailable.", e),
         }
 
 
@@ -143,7 +193,7 @@ async def suggest(query: str, page: int = 1):
             "page": page,
             "total_pages": 0,
             "total_results": 0,
-            "error": f"Suggestions unavailable. {str(e)}",
+            "error": _safe_provider_error("Suggestions unavailable.", e),
         }
 
 
@@ -164,21 +214,27 @@ async def discover(page: int = 1):
             "page": page,
             "total_pages": 0,
             "total_results": 0,
-            "error": f"Discover unavailable. {str(e)}",
+            "error": _safe_provider_error("Discover unavailable.", e),
         }
 
 
 @router.get("/{movie_id}")
 async def get_movie(movie_id: str):
     try:
-        media_type, media_id = parse_media_slug(movie_id)
         movie = await media_details(movie_id)
+        canonical_id = movie.get("slug") or movie_id
+        media_type, media_id = parse_media_slug(str(canonical_id))
         year = (movie.get("release_date") or "")[:4] or None
+        partial_error = None
 
-        providers_tmdb, providers_wm = await asyncio.gather(
-            media_watch_providers(movie_id),
-            fetch_watchmode_sources(movie.get("title") or "", year),
-        )
+        try:
+            providers_tmdb, providers_wm = await asyncio.gather(
+                media_watch_providers(str(canonical_id)),
+                fetch_watchmode_sources(movie.get("title") or "", year),
+            )
+        except Exception as e:
+            providers_tmdb, providers_wm = [], []
+            partial_error = _safe_provider_error("Watch providers unavailable.", e)
 
         where: list[dict] = []
         seen_names: set[str] = set()
@@ -196,7 +252,10 @@ async def get_movie(movie_id: str):
                     entry["web_url"] = f"https://www.themoviedb.org/movie/{media_id}/watch"
             where.append(entry)
 
-        reviews = list(reviews_collection.find({"movie_id": movie_id}))
+        review_ids = [movie_id]
+        if canonical_id != movie_id:
+            review_ids.append(str(canonical_id))
+        reviews = list(reviews_collection.find({"movie_id": {"$in": review_ids}}))
         dist = empty_distribution()
         for review in reviews:
             review["_id"] = str(review["_id"])
@@ -216,16 +275,22 @@ async def get_movie(movie_id: str):
                 reverse=True,
             )[0]
 
+        try:
+            similar = await similar_media(str(canonical_id))
+        except Exception as e:
+            similar = []
+            partial_error = partial_error or _safe_provider_error("Similar titles unavailable.", e)
+
         return {
             "movie": movie,
             "where_to_watch": where,
             "reviews": reviews,
             "top_review": top_review,
-            "similar_movies": await similar_media(movie_id),
+            "similar_movies": similar,
             "rating_distribution": dist,
             "rating_distribution_pct": _dist_percentages(dist),
             "total_votes": len(reviews),
-            "error": None,
+            "error": partial_error,
         }
     except Exception as e:
         return {
@@ -237,5 +302,5 @@ async def get_movie(movie_id: str):
             "rating_distribution": empty_distribution(),
             "rating_distribution_pct": _dist_percentages(empty_distribution()),
             "total_votes": 0,
-            "error": f"Movie details unavailable. {str(e)}",
+            "error": _safe_provider_error("Title details unavailable.", e),
         }

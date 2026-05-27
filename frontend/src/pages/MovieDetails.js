@@ -279,6 +279,7 @@ const MovieDetails = ({ user, onOpenAuth }) => {
   const backdrop = movie.backdrop_path || movie.poster_path;
   const cast = movie.cast || [];
   const companies = movie.production_companies || [];
+  const creditLabel = movie.media_type === 'tv' ? 'Creator' : 'Director';
   return (
     <motion.div
       className="min-h-screen bg-[#0B0B0B]"
@@ -336,7 +337,7 @@ const MovieDetails = ({ user, onOpenAuth }) => {
                   {movie.runtime ? <span className="text-gray-300">{movie.runtime} min</span> : null}
                   {movie.director && (
                     <span className="text-gray-300">
-                      Director: <span className="text-white">{movie.director}</span>
+                      {creditLabel}: <span className="text-white">{movie.director}</span>
                     </span>
                   )}
                 </div>

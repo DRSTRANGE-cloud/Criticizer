@@ -11,6 +11,6 @@ export const WELCOME_MESSAGE = {
   id: 'welcome',
   role: 'assistant',
   content:
-    "Hey — I'm **Critic's Talk**, your cinematic companion on Criticizer. Tell me your mood, a title you loved, or what you're in the mood for. I'll find picks, explain films, and help you decide faster.",
+    "Hey — I'm **Critics Talk**, your cinematic companion on Criticizer. Tell me your mood, a title you loved, or what you're in the mood for. I'll find picks, explain films, and help you decide faster.",
   recommendations: [],
 };

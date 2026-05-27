@@ -60,12 +60,12 @@ def test_movie_kids_category_shape():
     assert "movies" in data
 
 
-def test_ai_recommend_requires_openai():
+def test_ai_recommend_requires_groq():
     r = client.post("/api/ai/recommend", json={"query": "sci-fi picks"})
     assert r.status_code == 503
 
 
-def test_ai_chat_requires_openai_or_runs():
+def test_ai_chat_requires_groq_or_runs():
     r = client.post(
         "/api/ai/chat",
         json={"message": "Recommend sci-fi movies", "session_id": "test-session-12345"},

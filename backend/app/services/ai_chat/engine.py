@@ -34,6 +34,15 @@ RESPONSE_SCHEMA = (
 )
 
 
+def _groq_client():
+    from openai import AsyncOpenAI
+
+    return AsyncOpenAI(
+        api_key=settings.groq_api_key,
+        base_url=settings.groq_base_url,
+    )
+
+
 def _parse_ai_json(text: str) -> dict | None:
     if not text:
         return None
@@ -128,11 +137,11 @@ async def run_chat(
     *,
     use_cache: bool = True,
 ) -> dict[str, Any]:
-    if not settings.openai_api_key:
+    if not settings.groq_api_key:
         return {
             "reply": (
-                "Critics Talk needs OpenAI to come alive. "
-                "Add OPENAI_API_KEY to backend/.env and restart the server."
+                "Critics Talk needs Groq to come alive. "
+                "Add GROQ_API_KEY to backend/.env and restart the server."
             ),
             "recommendations": [],
             "intent": "general",
@@ -185,11 +194,9 @@ async def run_chat(
     messages.extend(history[-8:])
     messages.append({"role": "user", "content": message.strip()})
 
-    from openai import AsyncOpenAI
-
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
+    client = _groq_client()
     completion = await client.chat.completions.create(
-        model=settings.openai_chat_model,
+        model=settings.groq_chat_model,
         messages=messages,
         temperature=0.75,
         max_tokens=900,
@@ -230,7 +237,7 @@ async def run_chat(
         "suggested_prompts": suggested[:4],
         "taste_summary": taste.get("taste_summary") if taste else None,
         "session_id": session_id,
-        "model": settings.openai_chat_model,
+        "model": settings.groq_chat_model,
         "cached": False,
     }
 
@@ -272,11 +279,11 @@ async def stream_chat(
     session_id: str,
 ) -> AsyncIterator[str]:
     """SSE: token events then a final done payload."""
-    if not settings.openai_api_key:
+    if not settings.groq_api_key:
         payload = json.dumps(
             {
                 "type": "done",
-                "reply": "Configure OPENAI_API_KEY to use Critics Talk.",
+                "reply": "Configure GROQ_API_KEY to use Critics Talk.",
                 "recommendations": [],
                 "suggested_prompts": [],
             }
@@ -307,27 +314,22 @@ async def stream_chat(
     messages.extend(history[-6:])
     messages.append({"role": "user", "content": message.strip()})
 
-    from openai import AsyncOpenAI
-
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-    stream = await client.chat.completions.create(
-        model=settings.openai_chat_model,
+    client = _groq_client()
+    completion = await client.chat.completions.create(
+        model=settings.groq_chat_model,
         messages=messages,
         temperature=0.75,
         max_tokens=900,
-        stream=True,
+        response_format={"type": "json_object"},
     )
 
-    full_parts: list[str] = []
-    async for chunk in stream:
-        delta = chunk.choices[0].delta.content or ""
-        if delta:
-            full_parts.append(delta)
-            yield f"data: {json.dumps({'type': 'token', 'content': delta})}\n\n"
-
-    full = "".join(full_parts)
+    full = completion.choices[0].message.content or ""
     parsed = _parse_ai_json(full) or {"reply": full, "movie_queries": [], "follow_up_prompts": []}
     reply = parsed.get("reply") or full
+
+    for i in range(0, len(reply), 24):
+        yield f"data: {json.dumps({'type': 'token', 'content': reply[i:i + 24]})}\n\n"
+
     queries = parsed.get("movie_queries") or []
     recs = await resolve_movie_titles([str(q) for q in queries if q])
     recs = (recs + _movies_from_context(ctx))[:8]

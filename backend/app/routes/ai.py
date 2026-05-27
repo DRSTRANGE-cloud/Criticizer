@@ -120,18 +120,21 @@ async def ai_profile(current_user: dict | None = Depends(get_optional_user)):
 
 @router.post("/recommend")
 async def recommend(body: RecommendBody):
-    if not settings.openai_api_key:
+    if not settings.groq_api_key:
         raise HTTPException(
             status_code=503,
-            detail="OpenAI is not configured. Set OPENAI_API_KEY in backend/.env.",
+            detail="Groq is not configured. Set GROQ_API_KEY in backend/.env.",
         )
 
     try:
         from openai import AsyncOpenAI
 
-        client = AsyncOpenAI(api_key=settings.openai_api_key)
+        client = AsyncOpenAI(
+            api_key=settings.groq_api_key,
+            base_url=settings.groq_base_url,
+        )
         completion = await client.chat.completions.create(
-            model=settings.openai_chat_model,
+            model=settings.groq_chat_model,
             messages=[
                 {
                     "role": "system",
@@ -145,11 +148,12 @@ async def recommend(body: RecommendBody):
             ],
             temperature=0.7,
             max_tokens=800,
+            response_format={"type": "json_object"},
         )
         text = completion.choices[0].message.content or ""
         parsed = _parse_json_block(text)
         if parsed and isinstance(parsed, dict):
-            return {"result": parsed, "model": settings.openai_chat_model}
-        return {"result": None, "raw": text, "model": settings.openai_chat_model}
+            return {"result": parsed, "model": settings.groq_chat_model}
+        return {"result": None, "raw": text, "model": settings.groq_chat_model}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e

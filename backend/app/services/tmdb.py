@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import httpx
+
 from app.config import settings
 from app.services.cache import tmdb_cache
 from app.services.http_client import get_http_client
@@ -44,6 +46,7 @@ def normalize_movie(m: dict[str, Any], media_type: str = "movie") -> dict[str, A
         "backdrop_path": _img(m.get("backdrop_path"), "original"),
         "release_date": m.get("release_date") or m.get("first_air_date") or "",
         "vote_average": m.get("vote_average") or 0,
+        "popularity": m.get("popularity") or 0,
     }
 
 
@@ -156,17 +159,56 @@ async def discover_tv(page: int = 1) -> tuple[list[dict[str, Any]], int, int, in
 
 
 async def discover_anime(page: int = 1) -> tuple[list[dict[str, Any]], int, int, int]:
-    data = await tmdb_get(
+    tv_data = await tmdb_get(
         "/discover/tv",
         params={
             "sort_by": "popularity.desc",
             "page": str(page),
             "include_adult": "false",
+            "include_null_first_air_dates": "false",
             "with_origin_country": "JP",
             "with_genres": "16",
         },
         ttl=600,
     )
+
+    movie_data = await tmdb_get(
+        "/discover/movie",
+        params={
+            "sort_by": "popularity.desc",
+            "page": str(page),
+            "include_adult": "false",
+            "with_original_language": "ja",
+            "with_genres": "16",
+            "vote_count.gte": "20",
+        },
+        ttl=600,
+    )
+
+    seen: set[str] = set()
+    movies: list[dict[str, Any]] = []
+    for item, media_type in [
+        *[(m, "tv") for m in tv_data.get("results", [])],
+        *[(m, "movie") for m in movie_data.get("results", [])],
+    ]:
+        normalized = normalize_movie(item, media_type=media_type)
+        key = normalized.get("slug") or normalized.get("id")
+        if not key or key in seen or not normalized.get("poster_path"):
+            continue
+        seen.add(key)
+        movies.append(normalized)
+
+    movies.sort(key=lambda m: m.get("popularity") or 0, reverse=True)
+    return (
+        movies,
+        page,
+        max(int(tv_data.get("total_pages") or 1), int(movie_data.get("total_pages") or 1)),
+        int(tv_data.get("total_results") or 0) + int(movie_data.get("total_results") or 0),
+    )
+
+
+async def top_rated_movies(page: int = 1) -> tuple[list[dict[str, Any]], int, int, int]:
+    data = await tmdb_get("/movie/top_rated", params={"page": str(page)}, ttl=600)
     movies = [normalize_movie(m) for m in data.get("results", [])]
     return (
         movies,
@@ -176,9 +218,34 @@ async def discover_anime(page: int = 1) -> tuple[list[dict[str, Any]], int, int,
     )
 
 
-async def top_rated_movies(page: int = 1) -> tuple[list[dict[str, Any]], int, int, int]:
-    data = await tmdb_get("/movie/top_rated", params={"page": str(page)}, ttl=600)
-    movies = [normalize_movie(m) for m in data.get("results", [])]
+async def now_playing_movies(region: str = "US", page: int = 1) -> tuple[list[dict[str, Any]], int, int, int]:
+    data = await tmdb_get(
+        "/movie/now_playing",
+        params={
+            "page": str(page),
+            "region": region.upper()[:2],
+        },
+        ttl=900,
+    )
+    movies = [normalize_movie(m, media_type="movie") for m in data.get("results", [])]
+    return (
+        movies,
+        int(data.get("page") or page),
+        int(data.get("total_pages") or 1),
+        int(data.get("total_results") or 0),
+    )
+
+
+async def upcoming_movies(region: str = "US", page: int = 1) -> tuple[list[dict[str, Any]], int, int, int]:
+    data = await tmdb_get(
+        "/movie/upcoming",
+        params={
+            "page": str(page),
+            "region": region.upper()[:2],
+        },
+        ttl=900,
+    )
+    movies = [normalize_movie(m, media_type="movie") for m in data.get("results", [])]
     return (
         movies,
         int(data.get("page") or page),
@@ -389,7 +456,12 @@ async def media_details(slug: str) -> dict[str, Any]:
     media_type, media_id = parse_media_slug(slug)
     if media_type == "tv":
         return await tv_details(media_id)
-    return await movie_details(media_id)
+    try:
+        return await movie_details(media_id)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code != 404:
+            raise
+        return await tv_details(media_id)
 
 
 async def media_watch_providers(slug: str, region: str = "US") -> list[dict[str, Any]]:
@@ -438,7 +510,7 @@ async def person_movie_credits(person_id: str) -> list[dict[str, Any]]:
 
 
 async def resolve_movie_titles(titles: list[str], limit_per: int = 1) -> list[dict[str, Any]]:
-    """Resolve title strings to TMDB movie cards (best-effort)."""
+    """Resolve title strings to TMDB movie/TV cards (best-effort)."""
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
     for title in titles[:10]:
@@ -446,7 +518,7 @@ async def resolve_movie_titles(titles: list[str], limit_per: int = 1) -> list[di
         if not t or len(t) < 2:
             continue
         try:
-            movies, _, _, _ = await search_movies(t, page=1)
+            movies, _, _, _ = await search_multi(t, page=1)
             for m in movies[:limit_per]:
                 key = m.get("slug") or m.get("id")
                 if key and key not in seen:

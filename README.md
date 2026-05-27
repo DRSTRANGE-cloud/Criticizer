@@ -118,7 +118,8 @@ GROQ_API_KEY=your_groq_api_key
 # 4️⃣ Start Backend
 
 ```bash
-python -m uvicorn server:app --reload --port 8001
+.\.venv\Scripts\Activate.ps1
+python -m uvicorn server:app --reload --port 8000
 ```
 
 Backend runs on:
