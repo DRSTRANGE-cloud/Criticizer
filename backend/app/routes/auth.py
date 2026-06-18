@@ -32,6 +32,11 @@ async def signup(user: UserCreate):
         raise HTTPException(status_code=400, detail="Email already registered")
 
     uname = user.username.strip()
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{3,30}", uname):
+        raise HTTPException(
+            status_code=400,
+            detail="Username must be 3-30 characters and use only letters, numbers, dots, dashes, or underscores",
+        )
     existing_username = users_collection.find_one({"username": uname})
     if existing_username:
         raise HTTPException(status_code=400, detail="Username already taken")

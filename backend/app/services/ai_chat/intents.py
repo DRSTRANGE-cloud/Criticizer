@@ -49,8 +49,8 @@ INTENT_PATTERNS: list[tuple[ChatIntent, re.Pattern[str]]] = [
     (ChatIntent.FRANCHISE, re.compile(r"\b(watch order|filler guide|marvel|mcu|naruto|franchise)\b", re.I)),
     (ChatIntent.DECISION, re.compile(r"\b(should i watch|worth watching|worth it)\b", re.I)),
     (ChatIntent.GROUP, re.compile(r"\b(family|friends|group|movie night|kids)\b", re.I)),
-    (ChatIntent.MOOD, re.compile(r"\b(mood|feeling|vibe)\b", re.I)),
-    (ChatIntent.RECOMMENDATION, re.compile(r"\b(recommend|suggest|pick|show me|bhai|koi mast)\b", re.I)),
+    (ChatIntent.MOOD, re.compile(r"\b(mood|feeling|vibe|dark sci-fi|feel-good|emotional anime)\b", re.I)),
+    (ChatIntent.RECOMMENDATION, re.compile(r"\b(recommend|suggest|pick|show me|bhai|koi mast|similar to|like)\b", re.I)),
 ]
 
 
@@ -80,6 +80,8 @@ def extract_title_candidates(message: str) -> list[str]:
     titles.extend(re.findall(r'"([^"]{2,80})"', message))
     titles.extend(re.findall(r"'([^']{2,80})'", message))
     for m in re.finditer(r"\blike\s+([A-Z][\w\s:&'-]{2,50})", message, re.I):
+        titles.append(m.group(1).strip())
+    for m in re.finditer(r"\bsimilar to\s+([A-Z][\w\s:&'-]{2,50})", message, re.I):
         titles.append(m.group(1).strip())
     for m in re.finditer(r"\b(watch|see)\s+([A-Z][\w\s:&'-]{2,40})", message):
         titles.append(m.group(2).strip())

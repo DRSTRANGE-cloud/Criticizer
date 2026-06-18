@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaStar } from 'react-icons/fa';
 
@@ -52,4 +52,4 @@ const MovieCard = ({ movie }) => {
   );
 };
 
-export default MovieCard;
+export default memo(MovieCard);

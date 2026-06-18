@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -64,6 +65,8 @@ async def add_to_watchlist(item: WatchlistItem, current_user: dict = Depends(get
     update_fields: dict = {"status": status}
     if snapshot:
         update_fields["movie_snapshot"] = snapshot
+    if not existing:
+        update_fields["created_at"] = datetime.utcnow().isoformat()
 
     if existing:
         watchlist_collection.update_one({"_id": existing["_id"]}, {"$set": update_fields})
@@ -73,6 +76,7 @@ async def add_to_watchlist(item: WatchlistItem, current_user: dict = Depends(get
         "user_id": current_user["user_id"],
         "movie_id": item.movie_id,
         "status": status,
+        "created_at": datetime.utcnow().isoformat(),
     }
     if snapshot:
         doc["movie_snapshot"] = snapshot

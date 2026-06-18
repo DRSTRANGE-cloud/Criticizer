@@ -1,22 +1,20 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { FaEnvelope, FaEye, FaEyeSlash, FaLock, FaTimes, FaUser } from 'react-icons/fa';
 import api, { API_URL } from '../services/api';
-import { FaTimes } from 'react-icons/fa';
 
-/** FastAPI returns `detail` as a string, array of objects, or object — normalize for UI */
 function formatAuthError(err) {
   if (!err.response) {
     if (err.code === 'ECONNABORTED') return 'Request timed out. Is the backend running on port 8001?';
     if (err.message === 'Network Error') {
-      return `Cannot reach API at ${API_URL}. Start backend: cd backend → .\\.venv\\Scripts\\activate → uvicorn server:app --reload --port 8001 (or run .\\start.ps1). Then restart npm start if you changed frontend/.env.`;
+      return `Cannot reach API at ${API_URL}. Start backend: cd backend -> .\\.venv\\Scripts\\activate -> uvicorn server:app --reload --port 8001 (or run .\\start.ps1). Then restart npm start if you changed frontend/.env.`;
     }
     return err.message || 'Network error';
   }
-  const d = err.response.data?.detail;
-  if (typeof d === 'string') return d;
-  if (Array.isArray(d)) {
-    return d.map((e) => e.msg || JSON.stringify(e)).join(' ');
-  }
-  if (d && typeof d === 'object') return JSON.stringify(d);
+  const detail = err.response.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) return detail.map((item) => item.msg || JSON.stringify(item)).join(' ');
+  if (detail && typeof detail === 'object') return JSON.stringify(detail);
   return err.response.statusText || 'An error occurred';
 }
 
@@ -25,23 +23,55 @@ const AuthModal = ({ mode, onClose, onSuccess, onSwitchMode }) => {
     email: '',
     username: '',
     password: '',
+    confirmPassword: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const isSignup = mode === 'signup';
+
+  const passwordChecks = useMemo(
+    () => ({
+      minLength: formData.password.length >= 8,
+      mixedCase: /[A-Z]/.test(formData.password) && /[a-z]/.test(formData.password),
+      number: /\d/.test(formData.password),
+    }),
+    [formData.password]
+  );
+
+  const passwordReady = passwordChecks.minLength && passwordChecks.mixedCase && passwordChecks.number;
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setError('');
+
+    if (isSignup) {
+      if (!passwordReady) {
+        setError('Use at least 8 characters with upper/lowercase letters and a number.');
+        return;
+      }
+      if (formData.password !== formData.confirmPassword) {
+        setError('Passwords do not match.');
+        return;
+      }
+    }
+
     setLoading(true);
-
     try {
-      const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/signup';
+      const endpoint = isSignup ? '/api/auth/signup' : '/api/auth/login';
       const email = formData.email.trim();
-      const payload =
-        mode === 'login'
-          ? { email, password: formData.password }
-          : { ...formData, email, username: formData.username.trim() };
-
+      const payload = isSignup
+        ? {
+            email,
+            username: formData.username.trim(),
+            password: formData.password,
+          }
+        : {
+            email,
+            password: formData.password,
+          };
       const response = await api.post(endpoint, payload, {
         headers: { 'Content-Type': 'application/json' },
         timeout: 20000,
@@ -54,95 +84,172 @@ const AuthModal = ({ mode, onClose, onSuccess, onSwitchMode }) => {
     }
   };
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (event) => {
+    setFormData((prev) => ({ ...prev, [event.target.name]: event.target.value }));
   };
 
+  const inputClassName =
+    'w-full rounded-2xl border border-white/10 bg-black/30 px-12 py-3.5 text-white outline-none transition placeholder:text-gray-500 focus:border-fuchsia-500/70 focus:ring-2 focus:ring-fuchsia-500/20';
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/70 backdrop-blur-md">
-      <div className="bg-[#141414] rounded-2xl p-8 max-w-md w-full relative border border-white/10 shadow-2xl">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-white hover:text-critisizer-red transition"
-          data-testid="close-auth-modal"
+    <AnimatePresence>
+      <motion.div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 backdrop-blur-md"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 24, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 24, scale: 0.96 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 24 }}
+          onClick={(event) => event.stopPropagation()}
+          className="relative w-full max-w-md overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(244,114,182,0.18),transparent_32%),linear-gradient(145deg,#16161a,#0c0c0f)] p-8 shadow-2xl"
         >
-          <FaTimes className="text-2xl" />
-        </button>
+          <div className="pointer-events-none absolute -top-16 right-0 h-40 w-40 rounded-full bg-fuchsia-600/15 blur-3xl" />
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute right-4 top-4 rounded-full border border-white/10 bg-white/5 p-2 text-white transition hover:bg-white/10"
+            data-testid="close-auth-modal"
+          >
+            <FaTimes />
+          </button>
 
-        <h2 className="text-3xl font-bold text-white mb-6">{mode === 'login' ? 'Sign In' : 'Sign Up'}</h2>
+          <p className="text-xs uppercase tracking-[0.3em] text-fuchsia-300/80">
+            {isSignup ? 'Join Criticizer' : 'Welcome Back'}
+          </p>
+          <h2 className="mt-3 text-3xl font-black text-white">{isSignup ? 'Create your movie identity' : 'Sign in to continue'}</h2>
+          <p className="mt-3 text-sm text-gray-400">
+            {isSignup
+              ? 'Unlock search, personalized picks, reviews, watchlists, and your yearly Wrapped.'
+              : 'Access search, reviews, watchlists, and your personalized cinema profile.'}
+          </p>
 
-        {error && (
-          <div className="bg-red-500/90 text-white p-3 rounded-xl mb-4" data-testid="auth-error">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <input
-              type="email"
-              name="email"
-              placeholder="Email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-3 bg-critisizer-dark text-white rounded-xl border border-gray-600 focus:border-fuchsia-500 focus:outline-none"
-              data-testid="email-input"
-            />
-          </div>
-
-          {mode === 'signup' && (
-            <div>
-              <input
-                type="text"
-                name="username"
-                placeholder="Username"
-                value={formData.username}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-3 bg-critisizer-dark text-white rounded-xl border border-gray-600 focus:border-fuchsia-500 focus:outline-none"
-                data-testid="username-input"
-              />
-            </div>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-5 rounded-2xl border border-red-400/30 bg-red-500/15 px-4 py-3 text-sm text-red-100"
+              data-testid="auth-error"
+            >
+              {error}
+            </motion.div>
           )}
 
-          <div>
-            <input
-              type="password"
-              name="password"
-              placeholder="Password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-3 bg-critisizer-dark text-white rounded-xl border border-gray-600 focus:border-fuchsia-500 focus:outline-none"
-              data-testid="password-input"
-            />
-          </div>
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <div className="relative">
+              <FaEnvelope className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+              <input
+                type="email"
+                name="email"
+                placeholder="Email address"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                className={inputClassName}
+                data-testid="email-input"
+              />
+            </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-red-600 to-fuchsia-600 text-white py-3 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50"
-            data-testid="submit-auth-button"
-          >
-            {loading ? 'Loading...' : mode === 'login' ? 'Sign In' : 'Sign Up'}
-          </button>
-        </form>
+            {isSignup && (
+              <div className="relative">
+                <FaUser className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                <input
+                  type="text"
+                  name="username"
+                  placeholder="Username"
+                  value={formData.username}
+                  onChange={handleChange}
+                  required
+                  minLength={3}
+                  className={inputClassName}
+                  data-testid="username-input"
+                />
+              </div>
+            )}
 
-        <div className="mt-6 text-center">
-          <p className="text-gray-400">
-            {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
+            <div className="relative">
+              <FaLock className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                name="password"
+                placeholder="Password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                className={inputClassName}
+                data-testid="password-input"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 transition hover:text-white"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <FaEyeSlash /> : <FaEye />}
+              </button>
+            </div>
+
+            {isSignup && (
+              <>
+                <div className="relative">
+                  <FaLock className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    name="confirmPassword"
+                    placeholder="Confirm password"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    required
+                    className={inputClassName}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((prev) => !prev)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 transition hover:text-white"
+                    aria-label={showConfirmPassword ? 'Hide confirmation password' : 'Show confirmation password'}
+                  >
+                    {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+                  </button>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-xs text-gray-400">
+                  <p className={`mb-1 ${passwordChecks.minLength ? 'text-emerald-300' : ''}`}>At least 8 characters</p>
+                  <p className={`mb-1 ${passwordChecks.mixedCase ? 'text-emerald-300' : ''}`}>Uppercase and lowercase letters</p>
+                  <p className={passwordChecks.number ? 'text-emerald-300' : ''}>At least one number</p>
+                </div>
+              </>
+            )}
+
             <button
-              onClick={() => onSwitchMode(mode === 'login' ? 'signup' : 'login')}
-              className="text-fuchsia-400 hover:underline font-semibold"
-              data-testid="switch-auth-mode"
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-2xl bg-gradient-to-r from-red-600 to-fuchsia-600 py-3.5 font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              data-testid="submit-auth-button"
             >
-              {mode === 'login' ? 'Sign Up' : 'Sign In'}
+              {loading ? 'Please wait...' : isSignup ? 'Create account' : 'Sign in'}
             </button>
-          </p>
-        </div>
-      </div>
-    </div>
+          </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-400">
+              {isSignup ? 'Already have an account? ' : "Don't have an account? "}
+              <button
+                type="button"
+                onClick={() => onSwitchMode(isSignup ? 'login' : 'signup')}
+                className="font-semibold text-fuchsia-400 transition hover:text-fuchsia-300"
+                data-testid="switch-auth-mode"
+              >
+                {isSignup ? 'Sign in' : 'Sign up'}
+              </button>
+            </p>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 };
 

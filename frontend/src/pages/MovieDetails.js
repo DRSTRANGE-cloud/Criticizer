@@ -179,7 +179,7 @@ const MovieDetails = ({ user, onOpenAuth }) => {
   }, [user, id, checkWatchlist]);
 
   useEffect(() => {
-    reviews.slice(0, 6).forEach((review) => {
+    reviews.slice(0, 3).forEach((review) => {
       fetchComments(review.review_id);
     });
   }, [reviews, fetchComments]);
@@ -257,7 +257,7 @@ const MovieDetails = ({ user, onOpenAuth }) => {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0B0B0B] flex items-center justify-center pt-20">
-        <div className="h-10 w-10 rounded-full border-2 border-white/20 border-t-fuchsia-500 animate-spin" />
+        <div className="h-20 w-10 rounded-full border-2 border-white/20 border-t-fuchsia-500 animate-spin" />
       </div>
     );
   }
@@ -280,6 +280,12 @@ const MovieDetails = ({ user, onOpenAuth }) => {
   const cast = movie.cast || [];
   const companies = movie.production_companies || [];
   const creditLabel = movie.media_type === 'tv' ? 'Creator' : 'Director';
+  const infoCards = [
+    { label: 'Release', value: movie.release_date || 'TBA' },
+    { label: 'Runtime', value: movie.runtime ? `${movie.runtime} min` : 'Unknown' },
+    { label: creditLabel, value: movie.director || 'Unknown' },
+    { label: 'Primary Studio', value: movie.production_company || companies[0]?.name || 'Unknown' },
+  ];
   return (
     <motion.div
       className="min-h-screen bg-[#0B0B0B]"
@@ -298,29 +304,40 @@ const MovieDetails = ({ user, onOpenAuth }) => {
         </button>
       </div>
       <div
-        className="relative min-h-[90vh] bg-cover bg-center"
+        className="relative bg-cover bg-center"
         style={{
           backgroundImage: backdrop
             ? `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.95)), url(${backdrop})`
             : undefined,
         }}
       >
-        <div className="absolute inset-0 flex items-end pb-20 pt-24">
+        <div className="relative min-h-[calc(100vh-5rem)] flex items-end pb-14 pt-32 md:pt-36">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-            <div className="flex flex-col md:flex-row gap-8">
-              {movie.poster_path && (
-                <motion.img
-                  src={movie.poster_path}
-                  alt={movie.title}
-                  loading="lazy"
-                  className="w-64 h-96 object-cover rounded-2xl shadow-2xl border border-white/10"
-                  data-testid="movie-poster"
-                  whileHover={{ scale: 1.03 }}
-                  transition={{ type: 'spring', stiffness: 320, damping: 24 }}
-                />
-              )}
-              <div className="flex-1">
-                <h1 className="text-5xl font-bold text-white mb-4" data-testid="movie-title">
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-[400px_minmax(0,1fr)] lg:items-end">
+                    {movie.poster_path && (
+        <motion.div
+          className="mx-auto w-full max-w-[400px] sm:max-w-[400px] lg:mx-0 lg:self-start"
+          whileHover={{ y: -4 }}
+          transition={{ type: "spring", stiffness: 320, damping: 24 }}
+        >
+          <div className="sticky top-24">
+            <div className="aspect-[2/3] overflow-hidden rounded-3xl border border-white/10 bg-black/40 shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
+              <img
+                src={movie.poster_path}
+                alt={movie.title}
+                loading="eager"
+                fetchPriority="high"
+                className="h-full w-full object-cover"
+                data-testid="movie-poster"
+              />
+
+              <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+            </div>
+          </div>
+        </motion.div>
+      )}
+              <div className="min-w-0">
+                <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 leading-tight" data-testid="movie-title">
                   {movie.title}
                 </h1>
                 <div className="flex flex-wrap items-center gap-4 mb-4">
@@ -354,25 +371,15 @@ const MovieDetails = ({ user, onOpenAuth }) => {
                 <p className="text-gray-300 text-lg mb-6 max-w-3xl" data-testid="movie-overview">
                   {movie.overview}
                 </p>
-                {companies.length > 0 && (
-                  <div className="flex flex-wrap gap-3 mb-6">
-                    {companies.slice(0, 6).map((c, i) =>
-                      c.logo_path ? (
-                        <img
-                          key={i}
-                          src={c.logo_path}
-                          alt={c.name || 'Studio'}
-                          className="h-8 object-contain opacity-90"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <span key={i} className="text-gray-400 text-sm border border-white/10 rounded-lg px-2 py-1">
-                          {c.name}
-                        </span>
-                      )
-                    )}
-                  </div>
-                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6 lg:max-w-3xl">
+                  {infoCards.map((item) => (
+                    <div key={item.label} className="rounded-2xl border border-white/10 bg-black/25 px-4 py-4 backdrop-blur">
+                      <p className="text-[10px] uppercase tracking-[0.25em] text-gray-500">{item.label}</p>
+                      <p className="mt-2 text-sm font-semibold text-white">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+                
                 <div className="flex flex-wrap gap-3">
                   {movie.trailer_key && (
                     <a
@@ -748,7 +755,22 @@ const MovieDetails = ({ user, onOpenAuth }) => {
           </div>
 
           <div className="space-y-4">
-            {reviews.length === 0 ? (
+            {!user ? (
+              <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-fuchsia-950/25 to-black p-8 text-center">
+                <p className="text-xs uppercase tracking-[0.25em] text-fuchsia-300/80">Community access</p>
+                <h3 className="mt-3 text-2xl font-bold text-white">Login to read and write reviews</h3>
+                <p className="mt-3 text-gray-400 max-w-lg mx-auto">
+                  Search, community reviews, likes, and comments are unlocked after sign in so the conversation stays personal and consistent.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => onOpenAuth('login')}
+                  className="mt-6 rounded-2xl bg-white px-5 py-3 font-semibold text-black transition hover:bg-gray-200"
+                >
+                  Sign in to continue
+                </button>
+              </div>
+            ) : reviews.length === 0 ? (
               <div className="bg-white/5 rounded-2xl p-8 text-center border border-white/10">
                 <p className="text-gray-400 text-lg">No reviews yet. Be the first to review!</p>
               </div>
@@ -870,8 +892,13 @@ const MovieDetails = ({ user, onOpenAuth }) => {
             <h2 className="text-2xl font-bold text-white mb-6">More Like This</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
               {similarMovies.map((item) => (
-                <motion.div key={item.id} whileHover={{ scale: 1.03 }}>
+                <motion.div key={item.id} whileHover={{ scale: 1.03 }} className="space-y-3">
                   <MovieCard movie={item} />
+                  {item.recommendation_reasons?.length > 0 && (
+                    <p className="text-xs text-gray-400 leading-5">
+                      {item.recommendation_reasons[0]}
+                    </p>
+                  )}
                 </motion.div>
               ))}
             </div>

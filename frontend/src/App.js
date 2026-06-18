@@ -7,6 +7,7 @@ import Home from './pages/Home';
 import MovieDetails from './pages/MovieDetails';
 import Watchlist from './pages/Watchlist';
 import Profile from './pages/Profile';
+import Wrapped from './pages/Wrapped';
 import AuthModal from './components/AuthModal';
 import './App.css';
 
@@ -69,6 +70,7 @@ function App() {
           <Route path="/movie/:id" element={<MovieDetails user={user} onOpenAuth={openAuthModal} />} />
           <Route path="/watchlist" element={user ? <Watchlist user={user} /> : <Navigate to="/" replace />} />
           <Route path="/profile/:userId" element={user ? <Profile user={user} /> : <Navigate to="/" replace />} />
+          <Route path="/profile/:userId/wrapped" element={user ? <Wrapped user={user} /> : <Navigate to="/" replace />} />
         </Routes>
 
         {showAuthModal && (

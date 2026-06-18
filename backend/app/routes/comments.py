@@ -38,6 +38,18 @@ async def get_review_comments(review_id: str):
     return {"comments": top_level, "count": len(comments)}
 
 
+@router.get("/user/{user_id}")
+async def get_user_comments(user_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Comments are private")
+
+    rows = list(comments_collection.find({"user_id": user_id}).sort("created_at", -1).limit(50))
+    comments = []
+    for row in rows:
+        comments.append(_hydrate(row))
+    return {"comments": comments}
+
+
 @router.post("/create")
 async def create_comment(payload: CommentCreate, current_user: dict = Depends(get_current_user)):
     text = payload.text.strip()
@@ -74,3 +86,17 @@ async def like_comment(comment_id: str, current_user: dict = Depends(get_current
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Comment not found")
     return {"message": "Comment liked"}
+
+
+@router.delete("/{comment_id}")
+async def delete_comment(comment_id: str, current_user: dict = Depends(get_current_user)):
+    comment = comments_collection.find_one({"comment_id": comment_id})
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    if comment.get("user_id") != current_user["user_id"]:
+        raise HTTPException(status_code=403, detail="You can only delete your own comments")
+
+    comments_collection.delete_many(
+        {"$or": [{"comment_id": comment_id}, {"parent_comment_id": comment_id}]}
+    )
+    return {"message": "Comment deleted"}
