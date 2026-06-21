@@ -1,69 +1,100 @@
 # 🎬 Criticizer
 
-Criticizer is a modern entertainment platform for movie and series lovers.  
-Discover trending movies, explore anime and TV shows, create watchlists, rate films, write reviews, and chat with an AI movie assistant — all inside a smooth cinematic experience.
+Criticizer is an AI-powered entertainment platform that helps users discover movies and TV shows, share reviews, build watchlists, participate in discussions, and receive personalized recommendations through an intelligent movie assistant.
+
+Designed with a modern cinematic experience in mind, Criticizer combines content discovery, community interaction, and AI-driven insights into a single platform.
 
 ---
 
-# ✨ Features
+## ✨ Features
 
-- 🎥 Discover trending movies & series
-- ⭐ Rate movies using the Criticizer Meter
-- 📝 Write reviews and reactions
-- 🤖 AI movie recommendation chatbot
-- 📚 Watchlist, Watched & Watch Later system
-- 🔎 Smart search with live suggestions
-- 🎭 Explore Anime, Hollywood & Bollywood sections
-- 👤 Personalized user profiles
-- 💬 Comment and discussion system
-- 📱 Fully responsive modern UI
-- 🌙 Dark cinematic theme with smooth animations
+### 🎥 Content Discovery
+
+* Discover trending movies and TV shows
+* Explore Hollywood, Bollywood, Anime, and Animated content
+* Smart search with real-time suggestions
+* Personalized recommendations based on user preferences
+
+### ⭐ Reviews & Ratings
+
+* Rate movies using the Criticizer Meter
+* Write and manage reviews
+* Like and engage with community reviews
+* Participate in movie discussions
+
+### 📚 Personal Collections
+
+* Watchlist
+* Watched Collection
+* Watch Later Collection
+* Personalized profile dashboard
+
+### 🤖 Critics Talk AI
+
+* AI-powered movie assistant
+* Personalized movie recommendations
+* Mood-based suggestions
+* Movie comparisons and explanations
+* Content discovery assistance
+
+### 🔐 Authentication & Security
+
+* JWT Authentication
+* Secure password hashing
+* Protected routes
+* Google OAuth Login
+* GitHub OAuth Login
+
+### 📱 Modern User Experience
+
+* Responsive design for desktop, tablet, and mobile
+* Framer Motion animations
+* Smooth page transitions
+* Optimized loading experience
+* Cinematic dark theme
 
 ---
 
-# ⭐ Criticizer Meter
+## 🛠️ Tech Stack
 
-| Rating | Meaning |
-|---|---|
-| ⭐ 1 | Waste of Time |
-| ⭐⭐ 2 | Check That Out Once |
-| ⭐⭐⭐ 3 | Kinda Liked It |
-| ⭐⭐⭐⭐ 4 | It's Peak |
-| ⭐⭐⭐⭐⭐ 5 | Absolute Cinema |
+### Frontend
 
----
+* React.js
+* Tailwind CSS
+* React Router
+* Axios
+* Framer Motion
 
-# 🛠️ Tech Stack
+### Backend
 
-## Frontend
-- React
-- Tailwind CSS
-- React Router
-- Axios
-- Framer Motion
+* FastAPI
+* MongoDB
+* JWT Authentication
+* Pydantic
 
-## Backend
-- FastAPI
-- MongoDB
-- JWT Authentication
-- TMDB API
-- Groq AI API
+### External Services
+
+* TMDB API
+* Groq AI API
+* Google OAuth
+* GitHub OAuth
 
 ---
 
-# 📂 Project Structure
+## 📂 Project Structure
 
-```bash
-Criticizer/
+```text
+Criticizer
 │
-├── backend/
+├── frontend
+│   ├── src
+│   ├── public
+│   └── package.json
+│
+├── backend
+│   ├── app
 │   ├── server.py
 │   ├── requirements.txt
-│   └── .env
-│
-├── frontend/
-│   ├── src/
-│   ├── package.json
 │   └── .env
 │
 └── README.md
@@ -71,9 +102,9 @@ Criticizer/
 
 ---
 
-# 🚀 Local Setup
+## 🚀 Local Development Setup
 
-## 1️⃣ Clone Repository
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/DRSTRANGE-cloud/Criticizer.git
@@ -82,71 +113,107 @@ cd Criticizer
 
 ---
 
-# 2️⃣ Backend Setup
+## Backend Setup
 
-```powershell
+### 2. Navigate to Backend
+
+```bash
 cd backend
+```
 
+### 3. Create Virtual Environment
+
+```bash
 python -m venv .venv
+```
 
+### 4. Activate Virtual Environment
+
+#### Windows PowerShell
+
+```bash
 .\.venv\Scripts\Activate.ps1
+```
 
+#### Windows CMD
+
+```bash
+.venv\Scripts\activate.bat
+```
+
+### 5. Install Dependencies
+
+```bash
 pip install -r requirements.txt
 ```
 
----
+### 6. Create Backend Environment Variables
 
-# 3️⃣ Create Backend `.env`
+Create:
 
-Inside:
-
-```bash
+```text
 backend/.env
 ```
 
 Add:
 
 ```env
-MONGO_URL=mongodb://localhost:27017/
-SECRET_KEY=your_secret_key
+MONGO_URL=your_mongodb_connection_string
+
 TMDB_API_KEY=your_tmdb_api_key
+
 GROQ_API_KEY=your_groq_api_key
+
+SECRET_KEY=your_jwt_secret
+
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
 ```
 
----
-
-# 4️⃣ Start Backend
+### 7. Run Backend Server
 
 ```bash
-.\.venv\Scripts\Activate.ps1
-python -m uvicorn server:app --reload --port 8000
+python -m uvicorn server:app --reload --port 8001
 ```
 
-Backend runs on:
+Backend:
 
-```bash
+```text
 http://localhost:8001
 ```
 
----
+API Docs:
 
-# 5️⃣ Frontend Setup
-
-Open a new terminal:
-
-```powershell
-cd frontend
-
-npm install
+```text
+http://localhost:8001/docs
 ```
 
 ---
 
-# 6️⃣ Create Frontend `.env`
+## Frontend Setup
 
-Inside:
+Open a new terminal.
+
+### 8. Navigate to Frontend
 
 ```bash
+cd frontend
+```
+
+### 9. Install Dependencies
+
+```bash
+npm install
+```
+
+### 10. Create Frontend Environment Variables
+
+Create:
+
+```text
 frontend/.env
 ```
 
@@ -154,98 +221,71 @@ Add:
 
 ```env
 REACT_APP_BACKEND_URL=http://localhost:8001
+
+REACT_APP_GOOGLE_CLIENT_ID=your_google_client_id
+
+REACT_APP_GITHUB_CLIENT_ID=your_github_client_id
+
+REACT_APP_GITHUB_REDIRECT_URI=http://localhost:3000/auth/github/callback
 ```
 
----
-
-# 7️⃣ Start Frontend
+### 11. Start Frontend
 
 ```bash
 npm start
 ```
 
-Frontend runs on:
+Frontend:
 
-```bash
+```text
 http://localhost:3000
 ```
 
 ---
 
-# 🎬 Main Sections
+## 🌐 APIs & Services
 
-- 🔥 Trending
-- 🎞️ Popular Movies
-- 📺 TV Shows
-- 🇮🇳 Bollywood
-- 🌎 Hollywood
-- 🍥 Anime
-- 👶 Animated / Kids Movies
-- ❤️ Personalized Picks
+* TMDB API
+* Groq AI API
+* Google OAuth
+* GitHub OAuth
 
 ---
 
-# 🤖 Criticizer AI
+## ⚡ Performance Optimizations
 
-The built-in AI assistant can:
-
-- recommend movies
-- suggest anime
-- explain endings
-- compare movies
-- detect mood-based preferences
-- help users discover content faster
+* Lazy loading
+* Async API requests
+* TMDB caching
+* Optimized MongoDB queries
+* Route-based code splitting
+* Responsive image loading
 
 ---
 
-# 🌐 APIs Used
+## 🎯 Future Enhancements
 
-- TMDB API
-- Groq AI API
-
----
-
-# 🔐 Authentication
-
-- JWT-based login system
-- Secure password hashing
-- Protected user routes
+* Criticizer Wrapped
+* Advanced discussion feeds
+* Real-time notifications
+* Enhanced recommendation engine
+* Social sharing features
+* Personalized entertainment analytics
 
 ---
 
-# 📱 Responsive Design
+## 👨‍💻 Author
 
-Criticizer is optimized for:
-- Desktop
-- Tablet
-- Mobile devices
+**Deepak Yadav**
 
----
-
-# ⚡ Performance Features
-
-- Lazy loading
-- Async API requests
-- Cached movie data
-- Optimized database queries
-- Smooth page transitions
+Movie & Anime Lover😍
 
 ---
 
-# 👨‍💻 Author
-
-### Deepak Yadav
-
-Passionate full-stack developer focused on AI-powered products and scalable web applications.
-
----
-
-# 📜 License
+## 📄 License
 
 This project is licensed under the MIT License.
 
 ---
 
-# 🎥 Built For Entertainment Lovers
-
-Criticizer is designed for people who love Movies, Animated Movies, TV Shows, and Cinematic discussions in one modern platform.
+### Built for movie lovers, reviewers, and entertainment enthusiasts who want more than just another streaming guide.
