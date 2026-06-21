@@ -14,6 +14,13 @@ class UserLogin(BaseModel):
     password: str = Field(..., min_length=1, max_length=128)
 
 
+class OAuthLogin(BaseModel):
+    provider: str
+    credential: str | None = None
+    code: str | None = None
+    redirect_uri: str | None = None
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str

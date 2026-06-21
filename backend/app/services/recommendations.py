@@ -58,6 +58,8 @@ LANGUAGE_ALIASES: dict[str, str] = {
 
 HIGH_RATINGS = {"Absolute Cinema", "It's Peak", "Excellent", "Good", "Kinda Liked It"}
 
+MIN_SIMILARITY_SCORE = 20.0
+
 RATING_LABEL_SCORE = {
     "Waste of Time": 1.0,
     "Check that Out Once": 2.0,
@@ -164,6 +166,25 @@ def _score_similarity(
     if base.get("media_type") == candidate.get("media_type"):
         score += 4
 
+    base_year = base.get("release_year")
+    candidate_year = candidate.get("release_year")
+    if base_year and candidate_year:
+        year_diff = abs(int(base_year) - int(candidate_year))
+        if year_diff <= 2:
+            score += 10
+            reasons.append("similar release era")
+        elif year_diff <= 5:
+            score += 5
+            reasons.append("close release window")
+
+    base_pop = float(base.get("popularity") or 0)
+    candidate_pop = float(candidate.get("popularity") or 0)
+    if base_pop > 1 and candidate_pop > 1:
+        pop_ratio = min(base_pop, candidate_pop) / max(base_pop, candidate_pop)
+        if pop_ratio >= 0.45:
+            score += 6
+            reasons.append("similar popularity tier")
+
     base_vote = float(base.get("vote_average") or 0)
     candidate_vote = float(candidate.get("vote_average") or 0)
     if base_vote and candidate_vote:
@@ -175,14 +196,14 @@ def _score_similarity(
             score += 3
 
     source_bonus = {
-        "collection": 26,
-        "recommended": 18,
-        "similar": 12,
-        "director": 16,
-        "cast": 11,
-        "discover": 8,
+        "collection": 28,
+        "recommended": 20,
+        "similar": 16,
+        "director": 18,
+        "cast": 12,
+        "discover": 6,
         "personal": 10,
-        "trending": 4,
+        "trending": 2,
     }.get(source, 0)
     if source_bonus:
         score += source_bonus
@@ -293,7 +314,7 @@ async def weighted_similar_media(slug: str, limit: int = 12) -> list[dict[str, A
             delta, why = _score_similarity(base, candidate, source)
             total += delta
             reasons.extend(why)
-        if total <= 0:
+        if total < MIN_SIMILARITY_SCORE:
             continue
         candidate["recommendation_score"] = round(total, 2)
         candidate["recommendation_reasons"] = list(dict.fromkeys(reasons))[:4]

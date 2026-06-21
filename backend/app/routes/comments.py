@@ -82,10 +82,22 @@ async def create_comment(payload: CommentCreate, current_user: dict = Depends(ge
 
 @router.post("/like/{comment_id}")
 async def like_comment(comment_id: str, current_user: dict = Depends(get_current_user)):
-    result = comments_collection.update_one({"comment_id": comment_id}, {"$inc": {"likes": 1}})
-    if result.matched_count == 0:
+    comment = comments_collection.find_one({"comment_id": comment_id})
+    if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")
-    return {"message": "Comment liked"}
+    liked_by = comment.get("liked_by") or []
+    user_id = current_user["user_id"]
+    if user_id in liked_by:
+        comments_collection.update_one(
+            {"comment_id": comment_id},
+            {"$pull": {"liked_by": user_id}, "$inc": {"likes": -1}},
+        )
+        return {"liked": False, "likes": max(0, int(comment.get("likes", 0)) - 1)}
+    comments_collection.update_one(
+        {"comment_id": comment_id},
+        {"$addToSet": {"liked_by": user_id}, "$inc": {"likes": 1}},
+    )
+    return {"liked": True, "likes": int(comment.get("likes", 0)) + 1}
 
 
 @router.delete("/{comment_id}")

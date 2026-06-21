@@ -25,15 +25,14 @@ const ChatbotWidget = ({ user }) => {
   const busyRef = useRef(false);
 
   useEffect(() => {
-    if (user) {
-      fetchAiTasteProfile().then((p) => {
-        if (p?.taste_summary) setTasteSummary(p.taste_summary);
-      });
-    }
+    if (!user) return;
+    fetchAiTasteProfile().then((p) => {
+      if (p?.taste_summary) setTasteSummary(p.taste_summary);
+    });
   }, [user]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!user || !isOpen) return;
     const sid = getChatSessionId();
     setSessionId(sid);
     fetchChatHistory(sid, 12).then((data) => {
@@ -47,11 +46,11 @@ const ChatbotWidget = ({ user }) => {
       }));
       setMessages([{ ...WELCOME_MESSAGE, id: 'welcome' }, ...mapped]);
     });
-  }, [isOpen]);
+  }, [isOpen, user]);
 
   const handleSend = useCallback(
     async (text) => {
-      if (busyRef.current || !text?.trim()) return;
+      if (busyRef.current || !text?.trim() || !user) return;
       busyRef.current = true;
       setIsTyping(true);
       setStreamingContent('');
@@ -111,8 +110,10 @@ const ChatbotWidget = ({ user }) => {
         busyRef.current = false;
       }
     },
-    [sessionId]
+    [sessionId, user]
   );
+
+  if (!user) return null;
 
   return (
     <>
@@ -139,12 +140,12 @@ const ChatbotWidget = ({ user }) => {
             whileHover={{ scale: 1.06 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-4 sm:right-6 z-[55] h-14 w-14 rounded-full bg-gradient-to-br from-fuchsia-600 via-violet-600 to-indigo-700 text-white shadow-xl shadow-fuchsia-900/50 flex items-center justify-center border border-white/20 group"
+            className="fixed bottom-6 right-4 sm:right-6 z-[55] h-14 w-14 rounded-full bg-gradient-to-br from-red-600 via-red-700 to-black text-white shadow-xl shadow-red-900/40 flex items-center justify-center border border-red-500/30 group"
             aria-label="Open Critics Talk"
             data-testid="critics-talk-fab"
           >
             <FaComments className="text-xl group-hover:scale-110 transition-transform" />
-            <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-emerald-400 border-2 border-[#0B0B0B] animate-pulse" />
+            <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-red-400 border-2 border-[#0B0B0B] animate-pulse" />
           </motion.button>
         )}
       </AnimatePresence>

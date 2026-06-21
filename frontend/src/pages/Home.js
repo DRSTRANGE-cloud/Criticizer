@@ -13,9 +13,11 @@ import {
   FaMapMarkerAlt,
   FaPaperPlane,
   FaReply,
+  FaRetweet,
   FaStar,
   FaTicketAlt,
 } from "react-icons/fa";
+import { preloadImage } from "../utils/images";
 
 const categoryCache = new Map();
 
@@ -129,6 +131,10 @@ function formatReleaseDate(value) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function addressStorageKey(userId) {
+  return userId ? `criticizer_local_address_${userId}` : "criticizer_local_address_guest";
 }
 
 function inferRegionFromAddress(address) {
@@ -296,12 +302,8 @@ const Home = ({ user, onOpenAuth }) => {
   const [theaterMeta, setTheaterMeta] = useState(null);
   const [theaterLoading, setTheaterLoading] = useState(true);
   const [heroIndex, setHeroIndex] = useState(0);
-  const [localAddress, setLocalAddress] = useState(
-    () => localStorage.getItem("criticizer_local_address") || "",
-  );
-  const [addressDraft, setAddressDraft] = useState(
-    () => localStorage.getItem("criticizer_local_address") || "",
-  );
+  const [localAddress, setLocalAddress] = useState("");
+  const [addressDraft, setAddressDraft] = useState("");
   const [categoryRows, setCategoryRows] = useState({
     action: [],
     anime: [],
@@ -321,19 +323,58 @@ const Home = ({ user, onOpenAuth }) => {
   const [posts, setPosts] = useState([]);
   const [postDraft, setPostDraft] = useState("");
   const [posting, setPosting] = useState(false);
+  const [replyDrafts, setReplyDrafts] = useState({});
+  const [openReplies, setOpenReplies] = useState({});
+
+  useEffect(() => {
+    const key = addressStorageKey(user?.user_id);
+    const saved = localStorage.getItem(key) || "";
+    setLocalAddress(saved);
+    setAddressDraft(saved);
+  }, [user?.user_id]);
+
+  const fetchTheaters = useCallback(async () => {
+    setTheaterLoading(true);
+    try {
+      const region = inferRegionFromAddress(localAddress);
+      const theaterRes = await api.get("/api/movies/theaters", {
+        params: { region, page: 1 },
+      });
+      setNowPlayingMovies(theaterRes.data.now_playing || []);
+      setUpcomingMovies(theaterRes.data.upcoming || []);
+      setTheaterMeta({
+        region: theaterRes.data.region,
+        region_label: theaterRes.data.region_label,
+        release_status: theaterRes.data.release_status,
+        availability: theaterRes.data.availability,
+      });
+    } catch {
+      setNowPlayingMovies([]);
+      setUpcomingMovies([]);
+      setTheaterMeta(null);
+    } finally {
+      setTheaterLoading(false);
+    }
+  }, [localAddress]);
+
+  useEffect(() => {
+    fetchTheaters();
+  }, [fetchTheaters, user?.user_id]);
+
+  useEffect(() => {
+    const interval = setInterval(fetchTheaters, 10 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchTheaters]);
 
   useEffect(() => {
     const loadPrimary = async () => {
       try {
-        const region = inferRegionFromAddress(localAddress);
-        const [trendRes, discRes, topRes, mixedRes, theaterRes] =
-          await Promise.all([
-            api.get("/api/movies/trending"),
-            api.get("/api/movies/discover?page=1"),
-            api.get("/api/movies/top-rated?page=1"),
-            api.get("/api/movies/trending-mixed"),
-            api.get(`/api/movies/theaters?region=${region}&page=1`),
-          ]);
+        const [trendRes, discRes, topRes, mixedRes] = await Promise.all([
+          api.get("/api/movies/trending"),
+          api.get("/api/movies/discover?page=1"),
+          api.get("/api/movies/top-rated?page=1"),
+          api.get("/api/movies/trending-mixed"),
+        ]);
         setTrendingMovies(trendRes.data.movies || []);
         setApiError(trendRes.data.error || null);
         setDiscoverMovies(discRes.data.movies || []);
@@ -342,23 +383,14 @@ const Home = ({ user, onOpenAuth }) => {
         setDiscoverError(discRes.data.error || null);
         setTopRatedMovies(topRes.data.movies || []);
         setMixedTrending(mixedRes.data.movies || []);
-        setNowPlayingMovies(theaterRes.data.now_playing || []);
-        setUpcomingMovies(theaterRes.data.upcoming || []);
-        setTheaterMeta({
-          region: theaterRes.data.region,
-          region_label: theaterRes.data.region_label,
-          release_status: theaterRes.data.release_status,
-          availability: theaterRes.data.availability,
-        });
       } catch (error) {
         setApiError(error.response?.data?.detail || error.message);
       } finally {
         setLoading(false);
-        setTheaterLoading(false);
       }
     };
     loadPrimary();
-  }, [localAddress]);
+  }, []);
 
   useEffect(() => {
     setHeroIndex(0);
@@ -508,8 +540,9 @@ const Home = ({ user, onOpenAuth }) => {
     ];
     return merged.filter((item) => {
       const key = item?.slug || item?.id;
-      if (!key || seen.has(key) || !(item.backdrop_path || item.poster_path))
-        return false;
+      if (!key || seen.has(key) || !item.backdrop_path) return false;
+      const hasAudienceSignal = (item.vote_count || 0) >= 40 || (item.popularity || 0) >= 18;
+      if (!hasAudienceSignal) return false;
       seen.add(key);
       return true;
     });
@@ -593,13 +626,47 @@ const Home = ({ user, onOpenAuth }) => {
     loadDiscussion();
   };
 
+  const replyToPost = async (discussionId) => {
+    if (!user) return onOpenAuth("login");
+    const text = (replyDrafts[discussionId] || "").trim();
+    if (!text) return;
+    await api.post(`/api/discussions/reply/${discussionId}`, { text });
+    setReplyDrafts((prev) => ({ ...prev, [discussionId]: "" }));
+    setOpenReplies((prev) => ({ ...prev, [discussionId]: true }));
+    loadDiscussion();
+  };
+
+  const likeReply = async (replyId) => {
+    if (!user) return onOpenAuth("login");
+    await api.post(`/api/discussions/reply-like/${replyId}`);
+    loadDiscussion();
+  };
+
+  const repostPost = async (discussionId) => {
+    if (!user) return onOpenAuth("login");
+    await api.post(`/api/discussions/repost/${discussionId}`);
+    loadDiscussion();
+  };
+
   const saveAddress = (event) => {
     event.preventDefault();
     const value = addressDraft.trim();
     if (!value) return;
-    localStorage.setItem("criticizer_local_address", value);
+    const key = addressStorageKey(user?.user_id);
+    localStorage.setItem(key, value);
     setLocalAddress(value);
   };
+
+  const featuredMovie = useMemo(() => {
+    if (heroMovies.length) return heroMovies[heroIndex % heroMovies.length];
+    return trendingMovies[0] || null;
+  }, [heroMovies, heroIndex, trendingMovies]);
+
+  const featuredImage = featuredMovie?.backdrop_path;
+
+  useEffect(() => {
+    if (featuredImage) preloadImage(featuredImage);
+  }, [featuredImage]);
 
   if (loading) {
     return (
@@ -615,12 +682,6 @@ const Home = ({ user, onOpenAuth }) => {
       </div>
     );
   }
-
-  const featuredMovie = heroMovies.length
-    ? heroMovies[heroIndex % heroMovies.length]
-    : trendingMovies[0];
-  const featuredImage =
-    featuredMovie?.backdrop_path || featuredMovie?.poster_path;
 
   return (
     <motion.div
@@ -638,21 +699,30 @@ const Home = ({ user, onOpenAuth }) => {
         </div>
       )}
 
-      <div
-        className="relative h-screen bg-cover bg-center bg-[#0B0B0B]"
-        style={{
-          backgroundImage: featuredImage
-            ? `linear-gradient(to bottom, rgba(0,0,0,0.28), rgba(0,0,0,0.92)), url(${featuredImage})`
-            : undefined,
-        }}
-      >
-        <div className="absolute inset-0 flex items-center">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-            <div className="max-w-2xl">
-              <h1 className="text-5xl md:text-7xl font-bold text-white mb-4">
+      <div className="relative min-h-[92vh] w-full overflow-hidden bg-[#0B0B0B]">
+        {featuredImage && (
+          <motion.img
+            key={featuredImage}
+            src={featuredImage}
+            alt=""
+            className="absolute inset-0 h-full w-full scale-[1.02] object-cover object-center"
+            initial={{ opacity: 0, scale: 1.04 }}
+            animate={{ opacity: 1, scale: 1.02 }}
+            transition={{ duration: 0.28 }}
+            loading="eager"
+            fetchPriority="high"
+          />
+        )}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_45%,rgba(0,0,0,0.08),rgba(0,0,0,0.66)_52%,rgba(0,0,0,0.92)_100%)]" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/42 to-black/38" />
+        <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#0B0B0B] to-transparent" />
+        <div className="relative z-10 flex h-full items-center pt-36 md:pt-38">
+          <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 w-full">
+            <div className="max-w-3xl">
+              <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold text-white mb-4">
                 Unlimited movies,
               </h1>
-              <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
+              <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold text-white mb-6">
                 reviews and more
               </h1>
               <p className="text-xl md:text-2xl text-white mb-4">
@@ -688,7 +758,7 @@ const Home = ({ user, onOpenAuth }) => {
                   {!user && (
                     <button
                       onClick={() => onOpenAuth("signup")}
-                      className="ml-8 bg-gradient-to-r from-red-600 to-fuchsia-600 text-white px-8 py-4 rounded-2xl text-xl font-semibold hover:opacity-90 transition shadow-lg"
+                      className="ml-4 sm:ml-8 bg-gradient-to-r from-red-600 to-red-700 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-2xl text-lg sm:text-xl font-semibold hover:opacity-90 transition shadow-lg"
                       data-testid="hero-signup-button"
                     >
                       Get Started
@@ -874,78 +944,121 @@ const Home = ({ user, onOpenAuth }) => {
             loading={categoriesLoading}
           />
 
-          <section className="rounded-3xl border border-white/10 bg-[#101010]/90 p-6">
+          <section id="discussion" className="rounded-3xl border border-white/10 bg-[#101010]/90 p-6">
             <h2 className="text-2xl font-bold text-white mb-4">Discussion</h2>
-            <div className="flex gap-2 mb-5">
+            <div className="flex flex-col sm:flex-row gap-2 mb-5">
               <input
                 value={postDraft}
                 maxLength={200}
                 onChange={(e) => setPostDraft(e.target.value)}
                 placeholder="Share your take in 200 characters..."
-                className="flex-1 rounded-xl bg-black/40 border border-white/10 px-4 py-3 text-white outline-none focus:border-fuchsia-500/70"
+                className="flex-1 rounded-xl bg-black/40 border border-white/10 px-4 py-3 text-white outline-none focus:border-red-500/60"
               />
               <button
                 type="button"
                 disabled={posting}
                 onClick={createPost}
-                className="px-4 py-3 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 text-white transition inline-flex items-center gap-2 disabled:opacity-60"
+                className="px-4 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white transition inline-flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 <FaPaperPlane className="text-xs" />
                 Post
               </button>
             </div>
             <div className="space-y-3">
-              {(posts.length
-                ? posts
-                : [
-                  {
-                    discussion_id: "d1",
-                    username: "cinegeek",
-                    text: "That opening scene is pure cinema.",
-                    likes: 18,
-                    reply_count: 4,
-                    created_at: new Date().toISOString(),
-                  },
-                  {
-                    discussion_id: "d2",
-                    username: "nightowl",
-                    text: "Great pacing. Never felt slow for me.",
-                    likes: 9,
-                    reply_count: 2,
-                    created_at: new Date().toISOString(),
-                  },
-                ]
-              ).map((post) => (
+              {posts.length === 0 && (
+                <p className="text-sm text-gray-500 py-6 text-center">
+                  No posts yet. Start the conversation.
+                </p>
+              )}
+              {posts.map((post) => (
                 <motion.div
                   key={post.discussion_id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="rounded-2xl border border-white/10 bg-black/30 p-4"
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-3">
                     <p className="text-sm font-semibold text-white">
                       @{post.username}
+                      {post.repost_of && (
+                        <span className="ml-2 text-xs font-normal text-gray-500">· reposted</span>
+                      )}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 shrink-0">
                       {new Date(post.created_at).toLocaleString()}
                     </p>
                   </div>
-                  <p className="mt-2 text-gray-300">{post.text}</p>
-                  <div className="mt-3 flex items-center gap-4 text-sm text-gray-400">
+                  <p className="mt-2 text-gray-300 leading-relaxed">{post.text}</p>
+                  <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-gray-400">
                     <button
                       type="button"
                       onClick={() => likePost(post.discussion_id)}
-                      className="inline-flex items-center gap-1 hover:text-white transition"
+                      className={`inline-flex items-center gap-1 transition ${
+                        post.user_liked ? "text-red-400" : "hover:text-white"
+                      }`}
                     >
                       <FaHeart className="text-xs" /> {post.likes || 0}
                     </button>
                     <button
                       type="button"
+                      onClick={() =>
+                        setOpenReplies((prev) => ({
+                          ...prev,
+                          [post.discussion_id]: !prev[post.discussion_id],
+                        }))
+                      }
                       className="inline-flex items-center gap-1 hover:text-white transition"
                     >
                       <FaReply className="text-xs" /> {post.reply_count || 0}
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => repostPost(post.discussion_id)}
+                      className="inline-flex items-center gap-1 hover:text-white transition"
+                    >
+                      <FaRetweet className="text-xs" /> {post.repost_count || 0}
+                    </button>
                   </div>
+                  {openReplies[post.discussion_id] && (
+                    <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
+                      {(post.replies || []).map((reply) => (
+                        <div key={reply.reply_id} className="rounded-xl bg-black/25 px-3 py-2">
+                          <p className="text-xs text-gray-400">@{reply.username}</p>
+                          <p className="text-sm text-gray-300 mt-1">{reply.text}</p>
+                          <button
+                            type="button"
+                            onClick={() => likeReply(reply.reply_id)}
+                            className={`mt-2 inline-flex items-center gap-1 text-xs transition ${
+                              reply.user_liked ? "text-red-400" : "text-gray-500 hover:text-white"
+                            }`}
+                          >
+                            <FaHeart className="text-[10px]" /> {reply.likes || 0}
+                          </button>
+                        </div>
+                      ))}
+                      <div className="flex gap-2">
+                        <input
+                          value={replyDrafts[post.discussion_id] || ""}
+                          maxLength={200}
+                          onChange={(e) =>
+                            setReplyDrafts((prev) => ({
+                              ...prev,
+                              [post.discussion_id]: e.target.value,
+                            }))
+                          }
+                          placeholder="Write a reply..."
+                          className="flex-1 rounded-lg bg-black/40 border border-white/10 px-3 py-2 text-sm text-white outline-none focus:border-red-500/50"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => replyToPost(post.discussion_id)}
+                          className="px-3 py-2 rounded-lg bg-red-600/80 text-white text-sm hover:bg-red-600"
+                        >
+                          Reply
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
               ))}
             </div>

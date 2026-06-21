@@ -1,17 +1,116 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import api from './services/api';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-import Home from './pages/Home';
-import MovieDetails from './pages/MovieDetails';
-import Watchlist from './pages/Watchlist';
-import Profile from './pages/Profile';
-import Wrapped from './pages/Wrapped';
 import AuthModal from './components/AuthModal';
 import './App.css';
 
+const Home = lazy(() => import('./pages/Home'));
+const MovieDetails = lazy(() => import('./pages/MovieDetails'));
+const Watchlist = lazy(() => import('./pages/Watchlist'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Wrapped = lazy(() => import('./pages/Wrapped'));
 const ChatbotWidget = lazy(() => import('./components/chatbot'));
+
+const pageVariants = {
+  initial: { opacity: 0, y: 12, scale: 0.995 },
+  animate: { opacity: 1, y: 0, scale: 1 },
+  exit: { opacity: 0, y: -8, scale: 0.995 },
+};
+
+function PageShell({ children }) {
+  return (
+    <motion.div
+      variants={pageVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function AppRoutes({ user, onOpenAuth }) {
+  const location = useLocation();
+
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route
+          path="/"
+          element={
+            <PageShell>
+              <Home user={user} onOpenAuth={onOpenAuth} />
+            </PageShell>
+          }
+        />
+        <Route
+          path="/movie/:id"
+          element={
+            <PageShell>
+              <MovieDetails user={user} onOpenAuth={onOpenAuth} />
+            </PageShell>
+          }
+        />
+        <Route
+          path="/watchlist"
+          element={
+            user ? (
+              <PageShell>
+                <Watchlist user={user} />
+              </PageShell>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/profile/:userId"
+          element={
+            user ? (
+              <PageShell>
+                <Profile user={user} />
+              </PageShell>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/profile/:userId/wrapped"
+          element={
+            user ? (
+              <PageShell>
+                <Wrapped user={user} />
+              </PageShell>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+      </Routes>
+    </AnimatePresence>
+  );
+}
+
+function AppLoading() {
+  return (
+    <div className="min-h-screen bg-[#0B0B0B] flex items-center justify-center">
+      <div className="w-full max-w-7xl px-4 space-y-6">
+        <div className="h-10 w-48 rounded-xl bg-white/5 animate-pulse" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-[280px] rounded-xl bg-white/5 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function App() {
   const [user, setUser] = useState(null);
@@ -53,11 +152,7 @@ function App() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0B0B0B] flex items-center justify-center">
-        <div className="h-10 w-10 rounded-full border-2 border-white/20 border-t-fuchsia-500 animate-spin" aria-label="Loading" />
-      </div>
-    );
+    return <AppLoading />;
   }
 
   return (
@@ -65,13 +160,9 @@ function App() {
       <div className="App bg-[#0B0B0B] min-h-screen">
         <Navbar user={user} onLogout={handleLogout} onOpenAuth={openAuthModal} />
 
-        <Routes>
-          <Route path="/" element={<Home user={user} onOpenAuth={openAuthModal} />} />
-          <Route path="/movie/:id" element={<MovieDetails user={user} onOpenAuth={openAuthModal} />} />
-          <Route path="/watchlist" element={user ? <Watchlist user={user} /> : <Navigate to="/" replace />} />
-          <Route path="/profile/:userId" element={user ? <Profile user={user} /> : <Navigate to="/" replace />} />
-          <Route path="/profile/:userId/wrapped" element={user ? <Wrapped user={user} /> : <Navigate to="/" replace />} />
-        </Routes>
+        <Suspense fallback={<AppLoading />}>
+          <AppRoutes user={user} onOpenAuth={openAuthModal} />
+        </Suspense>
 
         {showAuthModal && (
           <AuthModal
@@ -83,9 +174,11 @@ function App() {
         )}
         <Footer />
 
-        <Suspense fallback={null}>
-          <ChatbotWidget user={user} />
-        </Suspense>
+        {user && (
+          <Suspense fallback={null}>
+            <ChatbotWidget user={user} />
+          </Suspense>
+        )}
       </div>
     </Router>
   );

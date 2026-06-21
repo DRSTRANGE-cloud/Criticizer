@@ -141,10 +141,22 @@ async def recent_review_feed(limit: int = 8):
 
 @router.post("/like")
 async def like_review(payload: ReviewLikePayload, current_user: dict = Depends(get_current_user)):
-    result = reviews_collection.update_one({"review_id": payload.review_id}, {"$inc": {"likes": 1}})
-    if result.matched_count == 0:
+    review = reviews_collection.find_one({"review_id": payload.review_id})
+    if not review:
         raise HTTPException(status_code=404, detail="Review not found")
-    return {"message": "Review liked"}
+    liked_by = review.get("liked_by") or []
+    user_id = current_user["user_id"]
+    if user_id in liked_by:
+        reviews_collection.update_one(
+            {"review_id": payload.review_id},
+            {"$pull": {"liked_by": user_id}, "$inc": {"likes": -1}},
+        )
+        return {"liked": False, "likes": max(0, int(review.get("likes", 0)) - 1)}
+    reviews_collection.update_one(
+        {"review_id": payload.review_id},
+        {"$addToSet": {"liked_by": user_id}, "$inc": {"likes": 1}},
+    )
+    return {"liked": True, "likes": int(review.get("likes", 0)) + 1}
 
 
 @router.delete("/{review_id}")

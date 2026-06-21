@@ -34,28 +34,28 @@ const ChatWindow = ({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 24, scale: 0.96 }}
           transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-          className="fixed bottom-24 right-4 sm:right-6 z-[60] w-[calc(100vw-2rem)] sm:w-[400px] max-h-[min(640px,calc(100vh-7rem))] flex flex-col rounded-3xl overflow-hidden shadow-2xl shadow-black/60 border border-white/10"
+          className="fixed bottom-20 right-4 z-[60] flex max-h-[min(560px,calc(100vh-6rem))] w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-3xl border border-red-500/15 shadow-2xl shadow-black/70 sm:right-6 sm:w-[360px] lg:w-[380px]"
           style={{
             background:
-              'linear-gradient(165deg, rgba(18,12,28,0.97) 0%, rgba(8,8,12,0.98) 50%, rgba(12,8,20,0.99) 100%)',
+              'linear-gradient(165deg, rgba(20,10,10,0.98) 0%, rgba(8,8,8,0.99) 50%, rgba(14,10,10,0.99) 100%)',
             backdropFilter: 'blur(20px)',
           }}
         >
-          <div className="relative px-4 py-3 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-fuchsia-950/40 to-violet-950/30">
+          <div className="relative flex items-center justify-between border-b border-red-500/15 bg-gradient-to-r from-red-950/35 to-black px-4 py-3">
             <div className="flex items-center gap-2.5">
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-fuchsia-500 to-violet-600 flex items-center justify-center shadow-lg shadow-fuchsia-900/40">
-                <FaMagic className="text-white text-sm" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-red-600 to-red-900 shadow-lg shadow-red-900/40">
+                <FaMagic className="text-sm text-white" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-white tracking-wide">Critics Talk</h2>
-                <p className="text-[10px] text-fuchsia-200/60">Cinematic AI · Criticizer</p>
+                <h2 className="text-sm font-bold tracking-wide text-white">Critics Talk</h2>
+                <p className="text-[10px] text-red-100/60">Cinematic AI - Criticizer</p>
               </div>
             </div>
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={onMinimize}
-                className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition"
+                className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white"
                 aria-label="Minimize"
               >
                 <FaMinus className="text-xs" />
@@ -63,7 +63,7 @@ const ChatWindow = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition"
+                className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white"
                 aria-label="Close chat"
               >
                 <FaTimes />
@@ -72,33 +72,31 @@ const ChatWindow = ({
           </div>
 
           {tasteSummary && (
-            <div className="px-4 py-2 text-xs text-fuchsia-200/80 border-b border-white/5 bg-fuchsia-950/20 line-clamp-2">
+            <div className="line-clamp-2 border-b border-white/5 bg-red-950/15 px-4 py-2 text-xs text-red-100/80">
               {tasteSummary}
             </div>
           )}
 
-          <div ref={scrollRef} className="flex-1 overflow-y-auto py-4 space-y-3 min-h-[280px] max-h-[420px]">
+          <div ref={scrollRef} className="min-h-[240px] flex-1 space-y-3 overflow-y-auto py-4 sm:max-h-[360px]">
             {messages.map((msg) => (
               <ChatMessage key={msg.id} message={msg} />
             ))}
 
             {streamingContent && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="px-3"
-              >
-                <div className="max-w-[92%] rounded-2xl px-4 py-3 text-sm bg-white/[0.06] border border-white/10 text-gray-200">
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-fuchsia-300/70 mb-1">Critics Talk</p>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="px-3">
+                <div className="max-w-[92%] rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm text-gray-200">
+                  <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-red-300/70">
+                    Critics Talk
+                  </p>
                   <span>{streamingContent}</span>
-                  <span className="inline-block w-1.5 h-4 ml-0.5 bg-fuchsia-400 animate-pulse align-middle" />
+                  <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-red-400 align-middle" />
                 </div>
               </motion.div>
             )}
 
             {isTyping && !streamingContent && (
               <div className="px-3">
-                <div className="inline-block rounded-2xl bg-white/[0.06] border border-white/10">
+                <div className="inline-block rounded-2xl border border-white/10 bg-white/[0.06]">
                   <TypingIndicator />
                 </div>
               </div>

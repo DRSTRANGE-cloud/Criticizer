@@ -6,12 +6,12 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.db import chat_history_collection
-from app.deps import get_optional_user
+from app.deps import get_current_user, get_optional_user
 from app.models.ai_chat import ChatRequest
 from app.services.ai_chat.engine import run_chat, stream_chat
 from app.services.ai_chat.rate_limit import check_rate_limit
 from app.services.ai_chat.taste import build_taste_profile, get_taste_profile
-from app.services.recommendations import is_personalized_request, recommend_for_query
+from app.services.recommendations import recommend_for_query
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -27,8 +27,8 @@ def _sanitize_message(text: str) -> str:
 
 def _actor_key(user: dict | None, session_id: str) -> str:
     if user:
-        return f"user:{user['user_id']}"
-    return f"session:{session_id}"
+        return f"user:{user['user_id']}:{session_id}"
+    return f"guest:{session_id}"
 
 
 @router.post("/chat")
@@ -38,7 +38,7 @@ async def chat(body: ChatRequest, current_user: dict | None = Depends(get_option
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
     session_id = (body.session_id or "").strip() or str(uuid.uuid4())
-    user_id = current_user["user_id"] if current_user else None
+    user_id = current_user["user_id"] if current_user else f"guest:{session_id}"
 
     allowed, retry_after = check_rate_limit(_actor_key(current_user, session_id))
     if not allowed:
@@ -62,11 +62,9 @@ async def chat(body: ChatRequest, current_user: dict | None = Depends(get_option
 async def chat_history(
     session_id: str = Query(..., min_length=8, max_length=64),
     limit: int = Query(20, ge=1, le=50),
-    current_user: dict | None = Depends(get_optional_user),
+    current_user: dict = Depends(get_current_user),
 ):
-    query: dict = {"session_id": session_id}
-    if current_user:
-        query["user_id"] = current_user["user_id"]
+    query: dict = {"session_id": session_id, "user_id": current_user["user_id"]}
 
     rows = list(chat_history_collection.find(query).sort("created_at", -1).limit(limit))
     rows.reverse()
@@ -76,9 +74,7 @@ async def chat_history(
 
 
 @router.get("/profile")
-async def ai_profile(current_user: dict | None = Depends(get_optional_user)):
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Sign in for your taste profile")
+async def ai_profile(current_user: dict = Depends(get_current_user)):
     profile = get_taste_profile(current_user["user_id"]) or build_taste_profile(current_user["user_id"])
     return {
         "taste_summary": profile.get("taste_summary"),
@@ -91,11 +87,9 @@ async def ai_profile(current_user: dict | None = Depends(get_optional_user)):
 @router.post("/recommend")
 async def recommend(body: RecommendBody, current_user: dict | None = Depends(get_optional_user)):
     user_id = current_user["user_id"] if current_user else None
-    taste = None
-    if user_id:
-        taste = get_taste_profile(user_id) or build_taste_profile(user_id)
+    taste = (get_taste_profile(user_id) or build_taste_profile(user_id)) if user_id else None
 
-    personalized_locked = not user_id and is_personalized_request(body.query)
+    personalized_locked = current_user is None
     try:
         movies = await recommend_for_query(body.query, taste=taste, user_id=user_id, limit=8)
     except Exception as exc:

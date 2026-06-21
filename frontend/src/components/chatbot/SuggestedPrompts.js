@@ -14,7 +14,7 @@ const SuggestedPrompts = ({ prompts, onSelect, disabled }) => {
           whileHover={{ scale: disabled ? 1 : 1.02 }}
           whileTap={{ scale: disabled ? 1 : 0.98 }}
           onClick={() => onSelect(text)}
-          className="text-left text-xs px-3 py-2 rounded-full border border-white/10 bg-white/[0.04] text-gray-300 hover:text-white hover:border-fuchsia-500/40 hover:bg-fuchsia-950/30 transition disabled:opacity-40 max-w-full truncate"
+          className="max-w-full truncate rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-xs text-gray-300 transition hover:border-red-500/40 hover:bg-red-950/25 hover:text-white disabled:opacity-40"
         >
           {text}
         </motion.button>

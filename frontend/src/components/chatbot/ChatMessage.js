@@ -30,12 +30,12 @@ const ChatMessage = ({ message }) => {
       <div
         className={`max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
           isUser
-            ? 'bg-gradient-to-br from-fuchsia-600/90 to-violet-700/90 text-white shadow-lg shadow-fuchsia-900/20'
+            ? 'bg-gradient-to-br from-red-600/95 to-red-900/95 text-white shadow-lg shadow-red-900/20'
             : 'bg-white/[0.06] border border-white/10 text-gray-200 backdrop-blur-md'
         }`}
       >
         {!isUser && (
-          <p className="text-[10px] uppercase tracking-[0.2em] text-fuchsia-300/70 mb-1.5 font-medium">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-red-300/70 mb-1.5 font-medium">
             Critics Talk
           </p>
         )}

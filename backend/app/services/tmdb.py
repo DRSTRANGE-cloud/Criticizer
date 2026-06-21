@@ -88,7 +88,7 @@ def normalize_movie(m: dict[str, Any], media_type: str = "movie") -> dict[str, A
         "title": m.get("title") or m.get("name") or "",
         "overview": m.get("overview") or "",
         "poster_path": _img(m.get("poster_path"), "w500"),
-        "backdrop_path": _img(m.get("backdrop_path"), "original"),
+        "backdrop_path": _img(m.get("backdrop_path"), "w1280"),
         "release_date": release_date,
         "release_year": _year_from_date(release_date),
         "vote_average": _safe_float(m.get("vote_average")),
@@ -117,7 +117,7 @@ def _normalize_people(credits: dict[str, Any]) -> tuple[list[dict[str, Any]], li
             "id": str(c.get("id")),
             "name": c.get("name"),
             "character": c.get("character"),
-            "profile_path": _img(c.get("profile_path"), "w185"),
+            "profile_path": _img(c.get("profile_path"), "w342"),
         }
         for c in (credits.get("cast") or [])[:12]
         if c.get("id") and c.get("name")
@@ -456,6 +456,11 @@ def _details_common(details: dict[str, Any], *, media_type: str) -> dict[str, An
         "status": details.get("status"),
         "crew": crew,
     }
+    if details.get("poster_path"):
+        out["poster_path"] = _img(details.get("poster_path"), "w780")
+    if details.get("backdrop_path"):
+        out["backdrop_path"] = _img(details.get("backdrop_path"), "original")
+        out["backdrop_preview"] = _img(details.get("backdrop_path"), "w300")
     return out
 
 

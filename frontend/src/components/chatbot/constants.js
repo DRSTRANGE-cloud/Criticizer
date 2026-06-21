@@ -1,10 +1,12 @@
 export const DEFAULT_PROMPTS = [
-  'Recommend mind-bending movies like Interstellar',
-  'Suggest emotional anime under 2 hours',
-  'What is trending this week?',
-  'Where can I watch Dune?',
-  'Should I watch Oppenheimer tonight?',
-  'bhai koi mast thriller suggest kar',
+  'Recommend movies that will completely mess with my mind',
+  'I loved Interstellar. What should I watch next?',
+  'Suggest dark psychological thrillers with great endings',
+  'Find hidden sci-fi gems most people missed',
+  'Recommend anime that will emotionally destroy me',
+  'What are the hottest movies trending right now?',
+  'Suggest movies similar to Attack on Titan',
+  'What should I watch tonight based on my ratings?',
 ];
 
 export const WELCOME_MESSAGE = {

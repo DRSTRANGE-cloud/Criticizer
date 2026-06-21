@@ -1,17 +1,14 @@
 import React, { memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaStar } from 'react-icons/fa';
+import { posterUrl } from '../utils/images';
 
 const MovieCard = ({ movie }) => {
   const navigate = useNavigate();
   if (!movie) return null;
 
   const fallbackImage = 'https://via.placeholder.com/500x750?text=No+Image';
-  const imageUrl = movie.poster_path
-    ? movie.poster_path.startsWith('http')
-      ? movie.poster_path
-      : `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-    : fallbackImage;
+  const imageUrl = posterUrl(movie.poster_path, 'w500') || fallbackImage;
 
   const slug =
     movie.slug || (movie.media_type === 'tv' ? `tv-${movie.id}` : String(movie.id));

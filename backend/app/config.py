@@ -44,6 +44,10 @@ class Settings:
     ai_chat_rate_limit: int = int(os.getenv("AI_CHAT_RATE_LIMIT", "30"))
     ai_chat_rate_window_seconds: int = int(os.getenv("AI_CHAT_RATE_WINDOW_SECONDS", "60"))
 
+    google_client_id: str | None = os.getenv("GOOGLE_CLIENT_ID")
+    github_client_id: str | None = os.getenv("GITHUB_CLIENT_ID")
+    github_client_secret: str | None = os.getenv("GITHUB_CLIENT_SECRET")
+
     cors_allow_origins: list[str] = field(default_factory=_default_cors_origins)
 
 

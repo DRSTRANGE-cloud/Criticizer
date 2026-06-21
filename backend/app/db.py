@@ -16,6 +16,7 @@ watchlist_collection = db.watchlist
 movies_collection = db.movies
 comments_collection = db.comments
 discussions_collection = db.discussions
+discussion_replies_collection = db.discussion_replies
 chat_history_collection = db.chat_history
 ai_profiles_collection = db.ai_profiles
 ai_recommendations_collection = db.ai_recommendations
@@ -41,6 +42,8 @@ def ensure_indexes() -> None:
         comments_collection.create_index("parent_comment_id")
         discussions_collection.create_index("movie_id")
         discussions_collection.create_index("user_id")
+        discussion_replies_collection.create_index("discussion_id")
+        discussion_replies_collection.create_index("parent_reply_id")
         chat_history_collection.create_index([("user_id", 1), ("created_at", -1)])
         chat_history_collection.create_index([("session_id", 1), ("created_at", -1)])
         ai_profiles_collection.create_index("user_id", unique=True)

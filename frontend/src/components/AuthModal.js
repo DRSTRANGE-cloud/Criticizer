@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { FaEnvelope, FaEye, FaEyeSlash, FaLock, FaTimes, FaUser } from 'react-icons/fa';
+import { FaEnvelope, FaEye, FaEyeSlash, FaGithub, FaGoogle, FaLock, FaTimes, FaUser } from 'react-icons/fa';
 import api, { API_URL } from '../services/api';
 
 function formatAuthError(err) {
@@ -19,6 +19,7 @@ function formatAuthError(err) {
 }
 
 const AuthModal = ({ mode, onClose, onSuccess, onSwitchMode }) => {
+  const githubPopupRef = useRef(null);
   const [formData, setFormData] = useState({
     email: '',
     username: '',
@@ -29,6 +30,7 @@ const AuthModal = ({ mode, onClose, onSuccess, onSwitchMode }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState('');
 
   const isSignup = mode === 'signup';
 
@@ -42,6 +44,139 @@ const AuthModal = ({ mode, onClose, onSuccess, onSwitchMode }) => {
   );
 
   const passwordReady = passwordChecks.minLength && passwordChecks.mixedCase && passwordChecks.number;
+
+  const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+  const githubClientId = process.env.REACT_APP_GITHUB_CLIENT_ID;
+  const githubRedirectUri = process.env.REACT_APP_GITHUB_REDIRECT_URI || window.location.origin;
+
+  useEffect(() => {
+    return () => {
+      if (githubPopupRef.current && !githubPopupRef.current.closed) {
+        githubPopupRef.current.close();
+      }
+    };
+  }, []);
+
+  const completeOAuth = async (payload) => {
+    setError('');
+    setOauthLoading(payload.provider);
+    try {
+      const response = await api.post('/api/auth/oauth', payload, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 30000,
+      });
+      onSuccess(response.data.user, response.data.access_token);
+    } catch (err) {
+      setError(formatAuthError(err));
+    } finally {
+      setOauthLoading('');
+    }
+  };
+
+  const loadGoogleScript = () =>
+    new Promise((resolve, reject) => {
+      if (window.google?.accounts?.id) {
+        resolve();
+        return;
+      }
+      const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+      if (existing) {
+        existing.addEventListener('load', resolve, { once: true });
+        existing.addEventListener('error', reject, { once: true });
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+
+  const handleGoogle = async () => {
+    if (!googleClientId) {
+      setError('Google login is not configured on the frontend.');
+      return;
+    }
+    setOauthLoading('google');
+    setError('');
+    try {
+      await loadGoogleScript();
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: (response) => {
+          if (!response.credential) {
+            setOauthLoading('');
+            setError('Google did not return a credential.');
+            return;
+          }
+          completeOAuth({ provider: 'google', credential: response.credential });
+        },
+      });
+      window.google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          setOauthLoading('');
+          setError('Google sign-in was dismissed. Try again or use email/password.');
+        }
+      });
+    } catch {
+      setOauthLoading('');
+      setError('Unable to load Google sign-in. Check your connection and OAuth settings.');
+    }
+  };
+
+  const handleGithub = () => {
+    if (!githubClientId) {
+      setError('GitHub login is not configured on the frontend.');
+      return;
+    }
+    setError('');
+    setOauthLoading('github');
+    const state = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+    sessionStorage.setItem('criticizer_github_oauth_state', state);
+    const url = new URL('https://github.com/login/oauth/authorize');
+    url.searchParams.set('client_id', githubClientId);
+    url.searchParams.set('redirect_uri', githubRedirectUri);
+    url.searchParams.set('scope', 'read:user user:email');
+    url.searchParams.set('state', state);
+    githubPopupRef.current = window.open(url.toString(), 'criticizer-github-oauth', 'width=520,height=720');
+    if (!githubPopupRef.current) {
+      setOauthLoading('');
+      setError('Popup blocked. Allow popups for GitHub login.');
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      const popup = githubPopupRef.current;
+      if (!popup || popup.closed) {
+        window.clearInterval(timer);
+        setOauthLoading('');
+        return;
+      }
+      try {
+        const popupUrl = new URL(popup.location.href);
+        if (popupUrl.origin !== window.location.origin) return;
+        const code = popupUrl.searchParams.get('code');
+        const returnedState = popupUrl.searchParams.get('state');
+        if (!code) return;
+        window.clearInterval(timer);
+        popup.close();
+        if (returnedState !== sessionStorage.getItem('criticizer_github_oauth_state')) {
+          setOauthLoading('');
+          setError('GitHub login state mismatch. Please try again.');
+          return;
+        }
+        completeOAuth({
+          provider: 'github',
+          code,
+          redirect_uri: githubRedirectUri,
+        });
+      } catch {
+        /* Cross-origin while GitHub owns the popup. */
+      }
+    }, 500);
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -89,12 +224,12 @@ const AuthModal = ({ mode, onClose, onSuccess, onSwitchMode }) => {
   };
 
   const inputClassName =
-    'w-full rounded-2xl border border-white/10 bg-black/30 px-12 py-3.5 text-white outline-none transition placeholder:text-gray-500 focus:border-fuchsia-500/70 focus:ring-2 focus:ring-fuchsia-500/20';
+    'w-full rounded-2xl border border-white/10 bg-black/30 px-12 py-3 text-white outline-none transition placeholder:text-gray-500 focus:border-red-500/70 focus:ring-2 focus:ring-red-500/20';
 
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 backdrop-blur-md"
+        className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 px-4 py-4 backdrop-blur-md sm:py-8"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -106,9 +241,9 @@ const AuthModal = ({ mode, onClose, onSuccess, onSwitchMode }) => {
           exit={{ opacity: 0, y: 24, scale: 0.96 }}
           transition={{ type: 'spring', stiffness: 260, damping: 24 }}
           onClick={(event) => event.stopPropagation()}
-          className="relative w-full max-w-md overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(244,114,182,0.18),transparent_32%),linear-gradient(145deg,#16161a,#0c0c0f)] p-8 shadow-2xl"
+          className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(220,38,38,0.18),transparent_32%),linear-gradient(145deg,#171111,#0b0b0b)] p-5 shadow-2xl sm:max-h-[calc(100vh-4rem)] sm:p-7"
         >
-          <div className="pointer-events-none absolute -top-16 right-0 h-40 w-40 rounded-full bg-fuchsia-600/15 blur-3xl" />
+          <div className="pointer-events-none absolute -top-16 right-0 h-40 w-40 rounded-full bg-red-600/15 blur-3xl" />
           <button
             type="button"
             onClick={onClose}
@@ -118,11 +253,11 @@ const AuthModal = ({ mode, onClose, onSuccess, onSwitchMode }) => {
             <FaTimes />
           </button>
 
-          <p className="text-xs uppercase tracking-[0.3em] text-fuchsia-300/80">
+          <p className="text-xs uppercase tracking-[0.3em] text-red-300/80">
             {isSignup ? 'Join Criticizer' : 'Welcome Back'}
           </p>
-          <h2 className="mt-3 text-3xl font-black text-white">{isSignup ? 'Create your movie identity' : 'Sign in to continue'}</h2>
-          <p className="mt-3 text-sm text-gray-400">
+          <h2 className="mt-2 text-2xl font-black text-white sm:text-3xl">{isSignup ? 'Create your movie identity' : 'Sign in to continue'}</h2>
+          <p className="mt-2 text-sm text-gray-400">
             {isSignup
               ? 'Unlock search, personalized picks, reviews, watchlists, and your yearly Wrapped.'
               : 'Access search, reviews, watchlists, and your personalized cinema profile.'}
@@ -139,7 +274,34 @@ const AuthModal = ({ mode, onClose, onSuccess, onSwitchMode }) => {
             </motion.div>
           )}
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <div className="mt-5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={handleGoogle}
+              disabled={loading || !!oauthLoading}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition hover:border-red-400/40 hover:bg-white/[0.1] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FaGoogle className="text-red-300" />
+              {oauthLoading === 'google' ? 'Connecting...' : 'Continue with Google'}
+            </button>
+            <button
+              type="button"
+              onClick={handleGithub}
+              disabled={loading || !!oauthLoading}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition hover:border-red-400/40 hover:bg-white/[0.1] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FaGithub />
+              {oauthLoading === 'github' ? 'Connecting...' : 'Continue with GitHub'}
+            </button>
+          </div>
+
+          <div className="mt-4 flex items-center gap-3 text-xs uppercase tracking-[0.22em] text-gray-500">
+            <span className="h-px flex-1 bg-white/10" />
+            or
+            <span className="h-px flex-1 bg-white/10" />
+          </div>
+
+          <form onSubmit={handleSubmit} className="mt-4 space-y-3">
             <div className="relative">
               <FaEnvelope className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
               <input
@@ -216,7 +378,7 @@ const AuthModal = ({ mode, onClose, onSuccess, onSwitchMode }) => {
                   </button>
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-xs text-gray-400">
+                <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-2.5 text-xs text-gray-400">
                   <p className={`mb-1 ${passwordChecks.minLength ? 'text-emerald-300' : ''}`}>At least 8 characters</p>
                   <p className={`mb-1 ${passwordChecks.mixedCase ? 'text-emerald-300' : ''}`}>Uppercase and lowercase letters</p>
                   <p className={passwordChecks.number ? 'text-emerald-300' : ''}>At least one number</p>
@@ -227,20 +389,20 @@ const AuthModal = ({ mode, onClose, onSuccess, onSwitchMode }) => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-2xl bg-gradient-to-r from-red-600 to-fuchsia-600 py-3.5 font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-2xl bg-gradient-to-r from-red-600 to-red-800 py-3.5 font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               data-testid="submit-auth-button"
             >
               {loading ? 'Please wait...' : isSignup ? 'Create account' : 'Sign in'}
             </button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-4 text-center">
             <p className="text-sm text-gray-400">
               {isSignup ? 'Already have an account? ' : "Don't have an account? "}
               <button
                 type="button"
                 onClick={() => onSwitchMode(isSignup ? 'login' : 'signup')}
-                className="font-semibold text-fuchsia-400 transition hover:text-fuchsia-300"
+                className="font-semibold text-red-300 transition hover:text-red-200"
                 data-testid="switch-auth-mode"
               >
                 {isSignup ? 'Sign in' : 'Sign up'}
