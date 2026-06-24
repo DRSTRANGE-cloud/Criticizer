@@ -16,6 +16,7 @@ def _default_cors_origins() -> list[str]:
         "http://127.0.0.1:3000",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "https://criticizer.vercel.app",
     ]
 
 
@@ -55,6 +56,7 @@ class Settings:
     ai_chat_rate_window_seconds: int = int(os.getenv("AI_CHAT_RATE_WINDOW_SECONDS", "60"))
 
     google_client_id: str | None = os.getenv("GOOGLE_CLIENT_ID")
+    google_client_secret: str | None = os.getenv("GOOGLE_CLIENT_SECRET")
     github_client_id: str | None = os.getenv("GITHUB_CLIENT_ID")
     github_client_secret: str | None = os.getenv("GITHUB_CLIENT_SECRET")
 
