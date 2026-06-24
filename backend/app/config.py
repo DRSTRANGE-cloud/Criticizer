@@ -5,17 +5,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
 def _default_cors_origins() -> list[str]:
-    """Browsers require explicit origins when using credentials; '*' is invalid with cookies."""
     raw = os.getenv("CORS_ALLOW_ORIGINS", "").strip()
-    if raw and raw != "*":
-        return [x.strip() for x in raw.split(",") if x.strip()]
+
+    if raw:
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
     return [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
     ]
-
 
 @dataclass(frozen=True)
 class Settings:
