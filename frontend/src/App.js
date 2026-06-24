@@ -41,6 +41,10 @@ function AppRoutes({ user, onOpenAuth }) {
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route
+          path="/auth/github/callback"
+          element={<GithubOAuthCallback onOpenAuth={onOpenAuth} />}
+        />
+        <Route
           path="/"
           element={
             <PageShell>
@@ -94,6 +98,60 @@ function AppRoutes({ user, onOpenAuth }) {
         />
       </Routes>
     </AnimatePresence>
+  );
+}
+
+function postGithubOAuthResult(search) {
+  const params = new URLSearchParams(search);
+  const code = params.get('code');
+  const state = params.get('state');
+  const error = params.get('error');
+
+  if (!code && !error) return false;
+  if (!window.opener || window.opener.closed) return false;
+
+  window.opener.postMessage(
+    {
+      type: 'criticizer-github-oauth',
+      code,
+      state,
+      error,
+      redirect_uri: window.location.origin,
+    },
+    window.location.origin,
+  );
+  return true;
+}
+
+function GithubOAuthBridge() {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!postGithubOAuthResult(location.search)) return undefined;
+
+    const timer = window.setTimeout(() => {
+      window.close();
+    }, 1500);
+
+    return () => window.clearTimeout(timer);
+  }, [location.search]);
+
+  return null;
+}
+
+function GithubOAuthCallback() {
+  GithubOAuthBridge();
+
+  return (
+    <div className="min-h-screen bg-[#0B0B0B] flex items-center justify-center px-4">
+      <div className="max-w-md rounded-3xl border border-white/10 bg-white/[0.04] p-6 text-center text-white shadow-2xl">
+        <p className="text-xs uppercase tracking-[0.25em] text-red-300/80">Criticizer</p>
+        <h1 className="mt-3 text-2xl font-bold">Completing GitHub sign in</h1>
+        <p className="mt-2 text-sm text-gray-400">
+          You can close this window if it does not close automatically.
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -158,6 +216,7 @@ function App() {
   return (
     <Router>
       <div className="App bg-[#0B0B0B] min-h-screen">
+        <GithubOAuthBridge />
         <Navbar user={user} onLogout={handleLogout} onOpenAuth={openAuthModal} />
 
         <Suspense fallback={<AppLoading />}>

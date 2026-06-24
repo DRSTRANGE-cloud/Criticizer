@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import _default_cors_origins, settings
+from app.config import settings
 from app.db import ensure_indexes
 from app.routes.ai import router as ai_router
 from app.routes.auth import router as auth_router
@@ -28,7 +28,8 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=_default_cors_origins(),
+        allow_origins=settings.cors_allow_origins,
+        allow_origin_regex=settings.cors_allow_origin_regex,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],    

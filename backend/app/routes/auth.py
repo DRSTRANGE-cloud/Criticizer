@@ -125,13 +125,14 @@ async def _verify_github(code: str, redirect_uri: str | None) -> dict:
         token_payload = token_response.json()
         access_token = token_payload.get("access_token")
         if token_response.status_code != 200 or not access_token:
-            raise HTTPException(status_code=401, detail="Invalid GitHub authorization code")
+            message = token_payload.get("error_description") or token_payload.get("error") or "Invalid GitHub authorization code"
+            raise HTTPException(status_code=401, detail=f"GitHub token exchange failed: {message}")
 
         headers = {"Authorization": f"Bearer {access_token}", "Accept": "application/vnd.github+json"}
         user_response = await client.get("https://api.github.com/user", headers=headers)
         email_response = await client.get("https://api.github.com/user/emails", headers=headers)
     if user_response.status_code != 200:
-        raise HTTPException(status_code=401, detail="Unable to verify GitHub user")
+        raise HTTPException(status_code=401, detail=f"Unable to verify GitHub user: {user_response.text}")
     user_payload = user_response.json()
     email = user_payload.get("email")
     if not email and email_response.status_code == 200:

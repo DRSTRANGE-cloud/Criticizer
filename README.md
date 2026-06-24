@@ -10,48 +10,48 @@ Designed with a modern cinematic experience in mind, Criticizer combines content
 
 ### 🎥 Content Discovery
 
-* Discover trending movies and TV shows
-* Explore Hollywood, Bollywood, Anime, and Animated content
-* Smart search with real-time suggestions
-* Personalized recommendations based on user preferences
+- Discover trending movies and TV shows
+- Explore Hollywood, Bollywood, Anime, and Animated content
+- Smart search with real-time suggestions
+- Personalized recommendations based on user preferences
 
 ### ⭐ Reviews & Ratings
 
-* Rate movies using the Criticizer Meter
-* Write and manage reviews
-* Like and engage with community reviews
-* Participate in movie discussions
+- Rate movies using the Criticizer Meter
+- Write and manage reviews
+- Like and engage with community reviews
+- Participate in movie discussions
 
 ### 📚 Personal Collections
 
-* Watchlist
-* Watched Collection
-* Watch Later Collection
-* Personalized profile dashboard
+- Watchlist
+- Watched Collection
+- Watch Later Collection
+- Personalized profile dashboard
 
 ### 🤖 Critics Talk AI
 
-* AI-powered movie assistant
-* Personalized movie recommendations
-* Mood-based suggestions
-* Movie comparisons and explanations
-* Content discovery assistance
+- AI-powered movie assistant
+- Personalized movie recommendations
+- Mood-based suggestions
+- Movie comparisons and explanations
+- Content discovery assistance
 
 ### 🔐 Authentication & Security
 
-* JWT Authentication
-* Secure password hashing
-* Protected routes
-* Google OAuth Login
-* GitHub OAuth Login
+- JWT Authentication
+- Secure password hashing
+- Protected routes
+- Google OAuth Login
+- GitHub OAuth Login
 
 ### 📱 Modern User Experience
 
-* Responsive design for desktop, tablet, and mobile
-* Framer Motion animations
-* Smooth page transitions
-* Optimized loading experience
-* Cinematic dark theme
+- Responsive design for desktop, tablet, and mobile
+- Framer Motion animations
+- Smooth page transitions
+- Optimized loading experience
+- Cinematic dark theme
 
 ---
 
@@ -59,25 +59,25 @@ Designed with a modern cinematic experience in mind, Criticizer combines content
 
 ### Frontend
 
-* React.js
-* Tailwind CSS
-* React Router
-* Axios
-* Framer Motion
+- React.js
+- Tailwind CSS
+- React Router
+- Axios
+- Framer Motion
 
 ### Backend
 
-* FastAPI
-* MongoDB
-* JWT Authentication
-* Pydantic
+- FastAPI
+- MongoDB
+- JWT Authentication
+- Pydantic
 
 ### External Services
 
-* TMDB API
-* Groq AI API
-* Google OAuth
-* GitHub OAuth
+- TMDB API
+- Groq AI API
+- Google OAuth
+- GitHub OAuth
 
 ---
 
@@ -134,7 +134,6 @@ TMDB_API_KEY=your_tmdb_api_key
 GROQ_API_KEY=your_groq_api_key
 SECRET_KEY=your_jwt_secret
 GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
 GITHUB_CLIENT_ID=your_github_client_id
 GITHUB_CLIENT_SECRET=your_github_client_secret
 ```
@@ -142,8 +141,9 @@ GITHUB_CLIENT_SECRET=your_github_client_secret
 ### 7. Run Backend Server
 
 ```bash
-python -m uvicorn server:app --reload --port 8000
+python -m uvicorn server:app --reload --host 127.0.0.1 --port 8000
 ```
+
 Backend:
 
 ```text
@@ -177,7 +177,7 @@ frontend/.env
 Add:
 
 ```env
-REACT_APP_BACKEND_URL=http://localhost:8001
+REACT_APP_BACKEND_URL=http://localhost:8000
 REACT_APP_GOOGLE_CLIENT_ID=your_google_client_id
 REACT_APP_GITHUB_CLIENT_ID=your_github_client_id
 REACT_APP_GITHUB_REDIRECT_URI=http://localhost:3000/auth/github/callback
@@ -197,23 +197,97 @@ http://localhost:3000
 
 ---
 
+## Local Run Checklist
+
+1. Backend runs on `http://localhost:8000`.
+2. Frontend runs on `http://localhost:3000`.
+3. `frontend/.env` must contain exactly one backend URL:
+
+```env
+REACT_APP_BACKEND_URL=http://localhost:8000
+```
+
+4. Start backend:
+
+```bash
+cd backend
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+python -m uvicorn server:app --reload --host 127.0.0.1 --port 8000
+```
+
+5. Start frontend:
+
+```bash
+cd frontend
+npm install
+npm start
+```
+
+If you change `frontend/.env`, stop and restart `npm start` so React picks up the new variables.
+
+6. Verify backend health:
+
+```text
+http://localhost:8000/api/health
+```
+
+## Production Deployment
+
+### Render Backend
+
+Use:
+
+```bash
+python -m uvicorn server:app --host 0.0.0.0 --port $PORT
+```
+
+Required Render environment variables:
+
+```env
+MONGO_URL=your_mongodb_connection_string
+SECRET_KEY=your_strong_jwt_secret
+TMDB_API_KEY=your_tmdb_api_key
+GROQ_API_KEY=your_groq_api_key
+GOOGLE_CLIENT_ID=your_google_client_id
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+CORS_ALLOW_ORIGINS=https://your-vercel-domain.vercel.app
+```
+
+### Vercel Frontend
+
+Required Vercel environment variables:
+
+```env
+REACT_APP_BACKEND_URL=https://criticizer.onrender.com
+REACT_APP_GOOGLE_CLIENT_ID=your_google_client_id
+REACT_APP_GITHUB_CLIENT_ID=your_github_client_id
+REACT_APP_GITHUB_REDIRECT_URI=https://your-vercel-domain.vercel.app/auth/github/callback
+```
+
+After changing Vercel environment variables, redeploy the frontend. React embeds `REACT_APP_*` values at build time.
+
+---
+
 ## 🌐 APIs & Services
 
-* TMDB API
-* Groq AI API
-* Google OAuth
-* GitHub OAuth
+- TMDB API
+- Groq AI API
+- Google OAuth
+- GitHub OAuth
 
 ---
 
 ## ⚡ Performance Optimizations
 
-* Lazy loading
-* Async API requests
-* TMDB caching
-* Optimized MongoDB queries
-* Route-based code splitting
-* Responsive image loading
+- Lazy loading
+- Async API requests
+- TMDB caching
+- Optimized MongoDB queries
+- Route-based code splitting
+- Responsive image loading
 
 ---
 

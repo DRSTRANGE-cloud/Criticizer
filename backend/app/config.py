@@ -18,6 +18,15 @@ def _default_cors_origins() -> list[str]:
         "http://127.0.0.1:5173",
     ]
 
+
+def _default_cors_origin_regex() -> str | None:
+    raw = os.getenv("CORS_ALLOW_ORIGIN_REGEX", "").strip()
+    if raw:
+        return raw
+    # Supports Vercel production and preview deployments without allowing all origins.
+    return r"https://.*\.vercel\.app"
+
+
 @dataclass(frozen=True)
 class Settings:
     mongo_url: str = os.getenv("MONGO_URL", "mongodb://localhost:27017/")
@@ -50,6 +59,7 @@ class Settings:
     github_client_secret: str | None = os.getenv("GITHUB_CLIENT_SECRET")
 
     cors_allow_origins: list[str] = field(default_factory=_default_cors_origins)
+    cors_allow_origin_regex: str | None = field(default_factory=_default_cors_origin_regex)
 
 
 settings = Settings()
