@@ -81,27 +81,6 @@ Designed with a modern cinematic experience in mind, Criticizer combines content
 
 ---
 
-## 📂 Project Structure
-
-```text
-Criticizer
-│
-├── frontend
-│   ├── src
-│   ├── public
-│   └── package.json
-│
-├── backend
-│   ├── app
-│   ├── server.py
-│   ├── requirements.txt
-│   └── .env
-│
-└── README.md
-```
-
----
-
 ## 🚀 Local Development Setup
 
 ### 1. Clone the Repository
@@ -110,8 +89,6 @@ Criticizer
 git clone https://github.com/DRSTRANGE-cloud/Criticizer.git
 cd Criticizer
 ```
-
----
 
 ## Backend Setup
 
@@ -135,12 +112,6 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-#### Windows CMD
-
-```bash
-.venv\Scripts\activate.bat
-```
-
 ### 5. Install Dependencies
 
 ```bash
@@ -159,16 +130,11 @@ Add:
 
 ```env
 MONGO_URL=your_mongodb_connection_string
-
 TMDB_API_KEY=your_tmdb_api_key
-
 GROQ_API_KEY=your_groq_api_key
-
 SECRET_KEY=your_jwt_secret
-
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
-
 GITHUB_CLIENT_ID=your_github_client_id
 GITHUB_CLIENT_SECRET=your_github_client_secret
 ```
@@ -176,22 +142,13 @@ GITHUB_CLIENT_SECRET=your_github_client_secret
 ### 7. Run Backend Server
 
 ```bash
-python -m uvicorn server:app --reload --port 8001
+python -m uvicorn server:app --reload --port 8000
 ```
-
 Backend:
 
 ```text
-http://localhost:8001
+http://localhost:8000
 ```
-
-API Docs:
-
-```text
-http://localhost:8001/docs
-```
-
----
 
 ## Frontend Setup
 
@@ -221,11 +178,8 @@ Add:
 
 ```env
 REACT_APP_BACKEND_URL=http://localhost:8001
-
 REACT_APP_GOOGLE_CLIENT_ID=your_google_client_id
-
 REACT_APP_GITHUB_CLIENT_ID=your_github_client_id
-
 REACT_APP_GITHUB_REDIRECT_URI=http://localhost:3000/auth/github/callback
 ```
 
@@ -263,22 +217,11 @@ http://localhost:3000
 
 ---
 
-## 🎯 Future Enhancements
-
-* Criticizer Wrapped
-* Advanced discussion feeds
-* Real-time notifications
-* Enhanced recommendation engine
-* Social sharing features
-* Personalized entertainment analytics
-
----
-
 ## 👨‍💻 Author
 
 **Deepak Yadav**
 
-Movie & Anime Lover😍
+Movies & Anime Lover😍
 
 ---
 

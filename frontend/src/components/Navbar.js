@@ -122,7 +122,18 @@ const Navbar = ({ user, onLogout, onOpenAuth }) => {
             whileHover={{ scale: 1.03 }}
             transition={{ type: "spring", stiffness: 320, damping: 22 }}
           >
-            <span className="text-xl sm:text-2xl md:text-3xl font-black tracking-[0.14em] sm:tracking-[0.18em] uppercase text-red-500 drop-shadow-[0_0_18px_rgba(220,38,38,0.28)]">
+            <span className="
+                text-2xl
+                font-black
+                tracking-[0.2em]
+                uppercase
+                bg-gradient-to-r
+                from-red-500
+                via-red-400
+                to-red-600
+                bg-clip-text
+                text-transparent
+              ">
               CRITICIZER
             </span>
           </motion.button>
