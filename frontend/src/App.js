@@ -45,6 +45,10 @@ function AppRoutes({ user, onOpenAuth }) {
           element={<GithubOAuthCallback onOpenAuth={onOpenAuth} />}
         />
         <Route
+          path="/oauth/github/callback"
+          element={<GithubOAuthCallback onOpenAuth={onOpenAuth} />}
+        />
+        <Route
           path="/"
           element={
             <PageShell>
@@ -101,7 +105,7 @@ function AppRoutes({ user, onOpenAuth }) {
   );
 }
 
-function postGithubOAuthResult(search) {
+function postGithubOAuthResult(search, pathname) {
   const params = new URLSearchParams(search);
   const code = params.get('code');
   const state = params.get('state');
@@ -116,7 +120,7 @@ function postGithubOAuthResult(search) {
       code,
       state,
       error,
-      redirect_uri: `${window.location.origin}/auth/github/callback`,
+      redirect_uri: `${window.location.origin}${pathname}`,
     },
     window.location.origin,
   );
@@ -127,14 +131,14 @@ function GithubOAuthBridge() {
   const location = useLocation();
 
   useEffect(() => {
-    if (!postGithubOAuthResult(location.search)) return undefined;
+    if (!postGithubOAuthResult(location.search, location.pathname)) return undefined;
 
     const timer = window.setTimeout(() => {
       window.close();
     }, 1500);
 
     return () => window.clearTimeout(timer);
-  }, [location.search]);
+  }, [location.pathname, location.search]);
 
   return null;
 }

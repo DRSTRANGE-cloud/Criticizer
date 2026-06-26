@@ -63,7 +63,11 @@ const AuthModal = ({ mode, onClose, onSuccess, onSwitchMode }) => {
   const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
   const githubClientId = process.env.REACT_APP_GITHUB_CLIENT_ID;
   const githubRedirectUri = useMemo(() => {
-    const fallback = `${window.location.origin}/auth/github/callback`;
+    const callbackPath =
+      window.location.hostname === "criticizer.vercel.app"
+        ? "/oauth/github/callback"
+        : "/auth/github/callback";
+    const fallback = `${window.location.origin}${callbackPath}`;
     const configured = process.env.REACT_APP_GITHUB_REDIRECT_URI;
     if (!configured) return fallback;
     try {
