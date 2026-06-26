@@ -272,10 +272,8 @@ const AuthModal = ({ mode, onClose, onSuccess, onSwitchMode }) => {
       [event.target.name]: event.target.value,
     }));
   };
-
-  const inputClassName =
-    "w-full rounded-2xl border border-white/10 bg-black/30 px-12 py-3 text-white outline-none transition placeholder:text-gray-500 focus:border-red-500/70 focus:ring-2 focus:ring-red-500/20";
-
+const inputClassName =
+    "w-full rounded-2xl border border-white/10 bg-black/30 px-12 py-3 text-white outline-none transition placeholder:text-gray-500 focus:border-red-500/70 focus:ring-2 focus:ring-red-500/20 [&:-webkit-autofill]:!bg-transparent [&:-webkit-autofill]:![background-color:transparent] autofill:bg-black/30 autofill:text-white";
   return (
     <AnimatePresence>
       <motion.div
