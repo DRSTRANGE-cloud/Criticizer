@@ -40,7 +40,7 @@ def _default_cors_origin_regex() -> str | None:
 @dataclass(frozen=True)
 class Settings:
     mongo_url: str = _env("MONGODB_URI") or _env("MONGO_URL") or "mongodb://localhost:27017/"
-    mongo_db_name: str = _env("MONGO_DB_NAME") or "criticizer"
+    mongo_db_name: str = _env("MONGO_DB_NAME") or "Criticizer"
 
     secret_key: str = _env("JWT_SECRET") or _env("SECRET_KEY") or "your-secret-key-change-in-production"
     jwt_algorithm: str = _env("JWT_ALGORITHM") or "HS256"
