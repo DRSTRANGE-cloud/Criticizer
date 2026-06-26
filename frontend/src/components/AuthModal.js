@@ -62,9 +62,18 @@ const AuthModal = ({ mode, onClose, onSuccess, onSwitchMode }) => {
 
   const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
   const githubClientId = process.env.REACT_APP_GITHUB_CLIENT_ID;
-  const githubRedirectUri =
-    process.env.REACT_APP_GITHUB_REDIRECT_URI ||
-    `${window.location.origin}/auth/github/callback`;
+  const githubRedirectUri = useMemo(() => {
+    const fallback = `${window.location.origin}/auth/github/callback`;
+    const configured = process.env.REACT_APP_GITHUB_REDIRECT_URI;
+    if (!configured) return fallback;
+    try {
+      return new URL(configured).origin === window.location.origin
+        ? configured
+        : fallback;
+    } catch {
+      return fallback;
+    }
+  }, []);
 
   const completeOAuth = useCallback(async (payload) => {
     setError("");

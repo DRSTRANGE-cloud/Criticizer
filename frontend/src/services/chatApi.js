@@ -74,6 +74,19 @@ export async function fetchChatHistory(sessionId, limit = 20) {
   return res.json();
 }
 
+export async function deleteChatHistory(sessionId) {
+  const params = new URLSearchParams({ session_id: sessionId });
+  const res = await fetch(`${API_URL}/api/ai/chat/history?${params}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || res.statusText || 'Unable to delete chat');
+  }
+  return res.json();
+}
+
 export async function fetchAiTasteProfile() {
   const res = await fetch(`${API_URL}/api/ai/profile`, { headers: authHeaders() });
   if (!res.ok) return null;

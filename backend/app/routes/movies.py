@@ -134,7 +134,7 @@ async def get_theater_movies(region: str = "US", page: int = 1):
             "region": safe_region,
             "region_label": profile["label"],
             "release_status": "Now playing" if now_movies else "Upcoming",
-            "availability": "Theatrical release data from TMDB",
+            "availability": "Theatrical release data from Criticizer",
             "error": None,
         }
     except Exception as e:

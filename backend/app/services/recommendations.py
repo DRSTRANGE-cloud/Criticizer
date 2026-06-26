@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import re
 from collections import Counter, defaultdict
+from datetime import datetime
 from typing import Any
 
 from app.db import reviews_collection, watchlist_collection
@@ -408,11 +409,22 @@ def _extract_title_reference(message: str) -> str | None:
     similar_match = re.search(r"\bsimilar to\s+([A-Za-z0-9][\w\s:&'-]{2,60})", message, re.I)
     if similar_match:
         return similar_match.group(1).strip()
+    watch_match = re.search(
+        r"\b(?:watch|watching|rewatch|try|start)\s+([A-Za-z0-9][\w\s:&'-]{2,80}?)(?:\s+(?:tonight|today|now|this weekend|with|for|please|pls)|[?.!]|$)",
+        message,
+        re.I,
+    )
+    if watch_match:
+        return watch_match.group(1).strip()
     return None
 
 
 def is_personalized_request(message: str) -> bool:
     lower = message.lower()
+    wants_fresh = any(
+        phrase in lower
+        for phrase in ("latest", "new", "recent", "trending", "now playing", "in cinemas", "in theaters", "released this year")
+    )
     return any(
         phrase in lower
         for phrase in (
@@ -499,6 +511,11 @@ async def recommend_for_query(
     for item in results:
         key = str(item.get("slug") or item.get("id") or "")
         if not key or key in seen or not item.get("poster_path"):
+            continue
+        release_year = item.get("release_year")
+        if not wants_fresh and release_year and int(release_year) > datetime.utcnow().year:
+            continue
+        if not title_ref and not wants_fresh and int(item.get("vote_count") or 0) < 50:
             continue
         seen.add(key)
         deduped.append(item)

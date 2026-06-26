@@ -73,6 +73,17 @@ async def chat_history(
     return {"messages": rows, "session_id": session_id}
 
 
+@router.delete("/chat/history")
+async def delete_chat_history(
+    session_id: str = Query(..., min_length=8, max_length=64),
+    current_user: dict = Depends(get_current_user),
+):
+    result = chat_history_collection.delete_many(
+        {"session_id": session_id, "user_id": current_user["user_id"]}
+    )
+    return {"deleted": result.deleted_count, "session_id": session_id}
+
+
 @router.get("/profile")
 async def ai_profile(current_user: dict = Depends(get_current_user)):
     profile = get_taste_profile(current_user["user_id"]) or build_taste_profile(current_user["user_id"])
@@ -99,18 +110,18 @@ async def recommend(body: RecommendBody, current_user: dict | None = Depends(get
             "summary": (
                 "Login to unlock personalized recommendations."
                 if personalized_locked
-                else "Grounded recommendations generated from TMDB and Criticizer data."
+                else "Recommendations tuned from Criticizer taste signals and current movie data."
             ),
             "movies": [
                 {
                     "title": movie.get("title"),
                     "year": (movie.get("release_date") or "")[:4],
-                    "why": (movie.get("recommendation_reasons") or ["Grounded TMDB match"])[0],
+                    "why": (movie.get("recommendation_reasons") or ["Strong Criticizer match"])[0],
                     "slug": movie.get("slug"),
                 }
                 for movie in movies
             ],
         },
         "movies": movies,
-        "model": "grounded-tmdb-profile",
+        "model": "criticizer-personal-assistant",
     }

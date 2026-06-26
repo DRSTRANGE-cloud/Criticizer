@@ -83,6 +83,6 @@ def extract_title_candidates(message: str) -> list[str]:
         titles.append(m.group(1).strip())
     for m in re.finditer(r"\bsimilar to\s+([A-Z][\w\s:&'-]{2,50})", message, re.I):
         titles.append(m.group(1).strip())
-    for m in re.finditer(r"\b(watch|see)\s+([A-Z][\w\s:&'-]{2,40})", message):
+    for m in re.finditer(r"\b(watch|watching|rewatch|see)\s+([A-Z][\w\s:&'-]{2,60}?)(?:\s+(?:tonight|today|now|this weekend|with|for)|[?.!]|$)", message):
         titles.append(m.group(2).strip())
     return list(dict.fromkeys(titles))[:5]

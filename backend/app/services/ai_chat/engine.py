@@ -87,7 +87,7 @@ def _movie_line(movie: dict[str, Any]) -> str:
         parts.append(f"- {', '.join(genres[:2])}")
     rating = movie.get("vote_average")
     if rating:
-        parts.append(f"- TMDB {float(rating):.1f}")
+        parts.append(f"- audience score {float(rating):.1f}")
     return " ".join(parts)
 
 
@@ -107,15 +107,38 @@ def _reply_for_recommendations(
     recs: list[dict[str, Any]],
     *,
     locked_personal: bool,
+    ctx: dict[str, Any] | None = None,
 ) -> str:
+    data = (ctx or {}).get("data") or {}
+    focus = data.get("focus_movie") or {}
     if not recs:
         if locked_personal:
             return "Login to unlock personalized recommendations. I can still suggest general picks if you tell me a mood, genre, runtime, language, or a movie you already like."
-        return "I could not ground a strong recommendation set from the current data. Try adding a mood, genre, runtime, language, decade, actor, director, or a title you want something similar to."
+        if focus:
+            title = focus.get("title") or "that title"
+            overview = (focus.get("overview") or "").strip()
+            year = (focus.get("release_date") or "")[:4]
+            return (
+                f"**{title}** could work tonight if you want something tense and inward."
+                + (f" It is from {year}." if year else "")
+                + (f" The setup: {overview[:180]}" if overview else "")
+                + "\n\nWant me to steer the night darker, slower, more psychological, or easier to watch?"
+            )
+        return "I need one more clue to tune this properly: mood, genre, runtime, language, decade, actor, director, or a title you already enjoy."
 
-    opener = "Login to unlock personalized recommendations.\n\nHere are grounded picks you can start with:\n" if locked_personal else "Here are grounded picks based on real TMDB matches:\n"
-    lines = [f"- **{movie.get('title')}**: {_why_it_fits(movie)}." for movie in recs[:5]]
-    return opener + "\n".join(lines)
+    if focus:
+        title = focus.get("title") or "that title"
+        overview = (focus.get("overview") or "").strip()
+        opener = (
+            f"**{title}** is a strong tonight pick if you are in the mood for something tense, obsessive, and psychologically heavy."
+        )
+        if overview:
+            opener += f" Short read: {overview[:180]}"
+        opener += "\n\nIf that mood sounds right, pair it with these next:"
+    else:
+        opener = "Login to unlock a sharper personal watchlist.\n\nHere are picks I would start with:" if locked_personal else "Here are picks tuned to what you asked for:"
+    lines = [f"- **{movie.get('title')}**: {_why_it_fits(movie)}." for movie in recs[:6]]
+    return opener + "\n" + "\n".join(lines)
 
 
 def _reply_for_streaming(ctx: dict[str, Any]) -> str:
@@ -123,9 +146,9 @@ def _reply_for_streaming(ctx: dict[str, Any]) -> str:
     movie = data.get("focus_movie") or {}
     providers = data.get("where_to_watch") or []
     if not movie:
-        return "Tell me the title you want to watch and I will check grounded provider data."
+        return "Tell me the title you want to watch and I will check where it is available."
     if not providers:
-        return f"I found **{movie.get('title', 'that title')}**, but I do not have grounded provider data for it right now."
+        return f"I found **{movie.get('title', 'that title')}**, but I do not have availability details for it right now."
     names = ", ".join(provider.get("provider_name") for provider in providers[:6] if provider.get("provider_name"))
     return f"Grounded streaming options for **{movie.get('title', 'this title')}**: {names}."
 
@@ -136,10 +159,10 @@ def _reply_for_cast(ctx: dict[str, Any]) -> str:
     people = cast_crew.get("people") or []
     filmography = cast_crew.get("filmography") or []
     if not people:
-        return "Tell me an actor or director name and I will pull grounded filmography matches."
+        return "Tell me an actor or director name and I will pull filmography matches."
     focus = people[0]
     if not filmography:
-        return f"I found **{focus.get('name')}**, but I could not load grounded filmography picks right now."
+        return f"I found **{focus.get('name')}**, but I could not load filmography picks right now."
     picks = ", ".join(movie.get("title") for movie in filmography[:5] if movie.get("title"))
     return f"**{focus.get('name')}** is a strong match for your query. Start with: {picks}."
 
@@ -147,24 +170,24 @@ def _reply_for_cast(ctx: dict[str, Any]) -> str:
 def _reply_for_explain(ctx: dict[str, Any]) -> str:
     movie = ((ctx.get("data") or {}).get("focus_movie")) or {}
     if not movie:
-        return "Tell me the title you want explained and I will use grounded TMDB data for a spoiler-safe summary."
+        return "Tell me the title you want explained and I will give you a spoiler-safe summary."
     overview = (movie.get("overview") or "").strip()
     genres = movie.get("genres") or []
     genre_text = ", ".join(genres[:3]) if genres else "genre-blended"
     director = movie.get("director")
-    pieces = [f"**{movie.get('title', 'This title')}** is grounded here as a {genre_text} story."]
+    pieces = [f"**{movie.get('title', 'This title')}** plays as a {genre_text} story."]
     if director:
         pieces.append(f"It is led creatively by {director}.")
     if overview:
         pieces.append(overview[:260])
-    pieces.append("If you want an ending breakdown, I can only do that from grounded data already in the app, so I may need more context than TMDB provides.")
+    pieces.append("If you want an ending breakdown, say so and I will switch into spoiler mode.")
     return " ".join(pieces)
 
 
 def _reply_for_discussion(ctx: dict[str, Any]) -> str:
     community = ((ctx.get("data") or {}).get("community")) or {}
     if not community:
-        return "Tell me the title and I will summarize grounded review and discussion activity from Criticizer."
+        return "Tell me the title and I will summarize Criticizer review and discussion activity."
     samples = community.get("sample_snippets") or []
     sample = f' Sample take: "{samples[0]}"' if samples else ""
     return (
@@ -183,7 +206,7 @@ def _reply_for_compare(ctx: dict[str, Any]) -> str:
     winner = left if left_rating >= right_rating else right
     return (
         f"**{left.get('title')}** vs **{right.get('title')}**: "
-        f"{winner.get('title')} currently has the stronger TMDB score. "
+        f"{winner.get('title')} currently has the stronger audience score. "
         f"If you want, I can next compare them by tone, scale, runtime, or accessibility."
     )
 
@@ -191,7 +214,7 @@ def _reply_for_compare(ctx: dict[str, Any]) -> str:
 def _reply_for_trending(ctx: dict[str, Any]) -> str:
     recs = ((ctx.get("data") or {}).get("candidate_recommendations")) or _movies_from_context(ctx)
     if not recs:
-        return "I could not load grounded trending picks right now."
+        return "I could not load trending picks right now."
     return "What is trending right now:\n" + "\n".join(f"- **{movie.get('title')}**" for movie in recs[:5])
 
 
@@ -203,7 +226,7 @@ def _reply_for_general(
     locked_personal: bool,
 ) -> str:
     if intent in {ChatIntent.RECOMMENDATION, ChatIntent.MOOD, ChatIntent.GENERAL, ChatIntent.GROUP, ChatIntent.DECISION}:
-        return _reply_for_recommendations(recs, locked_personal=locked_personal)
+        return _reply_for_recommendations(recs, locked_personal=locked_personal, ctx=ctx)
     if intent == ChatIntent.STREAMING:
         return _reply_for_streaming(ctx)
     if intent == ChatIntent.CAST_CREW:
@@ -216,7 +239,7 @@ def _reply_for_general(
         return _reply_for_compare(ctx)
     if intent == ChatIntent.TRENDING:
         return _reply_for_trending(ctx)
-    return _reply_for_recommendations(recs, locked_personal=locked_personal)
+    return _reply_for_recommendations(recs, locked_personal=locked_personal, ctx=ctx)
 
 
 def _default_prompts(intent: ChatIntent) -> list[str]:
@@ -303,12 +326,12 @@ async def run_chat(
 
     result = {
         "reply": reply,
-        "recommendations": recs[:8],
+        "recommendations": recs[:10],
         "intent": intent.value,
         "suggested_prompts": _default_prompts(intent),
         "taste_summary": taste.get("taste_summary") if taste and user_id else None,
         "session_id": session_id,
-        "model": "grounded-tmdb-profile",
+        "model": "criticizer-personal-assistant",
         "cached": False,
         "grounding": _serialize_context(ctx.get("data") or {}),
     }
@@ -320,7 +343,7 @@ async def run_chat(
         role="assistant",
         content=reply,
         intent=intent.value,
-        recommendations=recs[:8],
+        recommendations=recs[:10],
     )
 
     if user_id and recs:
@@ -329,7 +352,7 @@ async def run_chat(
                 "user_id": user_id,
                 "session_id": session_id,
                 "message": message[:500],
-                "movie_ids": [movie.get("slug") or movie.get("id") for movie in recs[:8]],
+                "movie_ids": [movie.get("slug") or movie.get("id") for movie in recs[:10]],
                 "intent": intent.value,
                 "created_at": datetime.utcnow().isoformat(),
             }
@@ -348,7 +371,7 @@ async def stream_chat(message: str, user_id: str | None, session_id: str) -> Asy
     done = {
         "type": "done",
         "reply": payload.get("reply"),
-        "recommendations": payload.get("recommendations") or [],
+        "recommendations": (payload.get("recommendations") or [])[:10],
         "intent": payload.get("intent"),
         "suggested_prompts": payload.get("suggested_prompts") or [],
         "taste_summary": payload.get("taste_summary"),

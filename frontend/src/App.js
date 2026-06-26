@@ -116,7 +116,7 @@ function postGithubOAuthResult(search) {
       code,
       state,
       error,
-      redirect_uri: window.location.origin,
+      redirect_uri: `${window.location.origin}/auth/github/callback`,
     },
     window.location.origin,
   );
@@ -140,18 +140,19 @@ function GithubOAuthBridge() {
 }
 
 function GithubOAuthCallback() {
-  GithubOAuthBridge();
-
   return (
-    <div className="min-h-screen bg-[#0B0B0B] flex items-center justify-center px-4">
-      <div className="max-w-md rounded-3xl border border-white/10 bg-white/[0.04] p-6 text-center text-white shadow-2xl">
-        <p className="text-xs uppercase tracking-[0.25em] text-red-300/80">Criticizer</p>
-        <h1 className="mt-3 text-2xl font-bold">Completing GitHub sign in</h1>
-        <p className="mt-2 text-sm text-gray-400">
-          You can close this window if it does not close automatically.
-        </p>
+    <>
+      <GithubOAuthBridge />
+      <div className="min-h-screen bg-[#0B0B0B] flex items-center justify-center px-4">
+        <div className="max-w-md rounded-3xl border border-white/10 bg-white/[0.04] p-6 text-center text-white shadow-2xl">
+          <p className="text-xs uppercase tracking-[0.25em] text-red-300/80">Criticizer</p>
+          <h1 className="mt-3 text-2xl font-bold">Completing GitHub sign in</h1>
+          <p className="mt-2 text-sm text-gray-400">
+            You can close this window if it does not close automatically.
+          </p>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -215,10 +216,8 @@ function App() {
 
   return (
     <Router>
-      <div className="App bg-[#0B0B0B] min-h-screen">
-        <GithubOAuthBridge />
+    <div className="App bg-[#0B0B0B] min-h-screen">
         <Navbar user={user} onLogout={handleLogout} onOpenAuth={openAuthModal} />
-
         <Suspense fallback={<AppLoading />}>
           <AppRoutes user={user} onOpenAuth={openAuthModal} />
         </Suspense>

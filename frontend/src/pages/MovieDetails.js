@@ -19,16 +19,40 @@ import { preloadImage } from "../utils/images";
 
 function MovieDetailsSkeleton() {
   return (
-    <div className="min-h-screen bg-[#0B0B0B] pt-24">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen overflow-hidden bg-[#0B0B0B] pt-24">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(220,38,38,0.18),transparent_34%),radial-gradient(circle_at_80%_30%,rgba(147,51,234,0.16),transparent_32%)]" />
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mb-8 flex items-center gap-3 text-red-100/80">
+          <div className="h-3 w-3 rounded-full bg-red-400 shadow-[0_0_18px_rgba(248,113,113,0.9)] animate-ping" />
+          <p className="text-xs uppercase tracking-[0.3em]">Preparing the reel</p>
+        </div>
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[380px_minmax(0,1fr)]">
-          <div className="mx-auto w-full max-w-[380px] aspect-[2/3] rounded-3xl bg-white/5 animate-pulse" />
-          <div className="space-y-4">
-            <div className="h-12 w-3/4 rounded-xl bg-white/5 animate-pulse" />
-            <div className="h-6 w-1/2 rounded-lg bg-white/5 animate-pulse" />
-            <div className="space-y-2">
+          <div className="mx-auto w-full max-w-[380px]">
+            <div className="relative aspect-[2/3] overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] shadow-2xl">
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-red-500/10 animate-pulse" />
+              <motion.div
+                className="absolute -left-1/2 top-0 h-full w-1/2 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                animate={{ x: ["0%", "320%"] }}
+                transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+              />
+              <div className="absolute inset-x-8 bottom-8 h-3 rounded-full bg-white/10" />
+            </div>
+          </div>
+          <div className="space-y-5 pt-2">
+            <div className="h-14 w-3/4 rounded-2xl bg-white/[0.08] animate-pulse" />
+            <div className="flex gap-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-9 w-24 rounded-full bg-white/[0.07] animate-pulse" />
+              ))}
+            </div>
+            <div className="space-y-3">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-4 rounded bg-white/5 animate-pulse" />
+                <div key={i} className="h-4 rounded-full bg-white/[0.06] animate-pulse" />
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-3 pt-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-24 rounded-2xl border border-white/10 bg-white/[0.035] animate-pulse" />
               ))}
             </div>
           </div>

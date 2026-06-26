@@ -1,6 +1,11 @@
 import axios from "axios";
 
-const rawApiUrl = process.env.REACT_APP_BACKEND_URL || "http://localhost:8000";
+const defaultApiUrl =
+  typeof window !== "undefined" && window.location.hostname === "criticizer.vercel.app"
+    ? "https://criticizer.onrender.com"
+    : "http://localhost:8000";
+
+const rawApiUrl = process.env.REACT_APP_BACKEND_URL || defaultApiUrl;
 export const API_URL = rawApiUrl.replace(/\/+$/, "");
 
 const api = axios.create({

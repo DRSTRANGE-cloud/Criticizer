@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaTimes, FaMinus, FaMagic } from 'react-icons/fa';
+import { FaTimes, FaMinus, FaMagic, FaTrash } from 'react-icons/fa';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import SuggestedPrompts from './SuggestedPrompts';
@@ -16,6 +16,7 @@ const ChatWindow = ({
   suggestedPrompts,
   tasteSummary,
   onSend,
+  onClear,
   disabled,
 }) => {
   const scrollRef = useRef(null);
@@ -52,6 +53,15 @@ const ChatWindow = ({
               </div>
             </div>
             <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={onClear}
+                disabled={disabled}
+                className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-red-200 disabled:opacity-50"
+                aria-label="Delete chat history"
+              >
+                <FaTrash className="text-xs" />
+              </button>
               <button
                 type="button"
                 onClick={onMinimize}

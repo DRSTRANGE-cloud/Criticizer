@@ -9,6 +9,7 @@ import {
   getChatSessionId,
   fetchChatHistory,
   fetchAiTasteProfile,
+  deleteChatHistory,
 } from '../../services/chatApi';
 
 let msgId = 0;
@@ -113,6 +114,22 @@ const ChatbotWidget = ({ user }) => {
     [sessionId, user]
   );
 
+  const handleClear = useCallback(async () => {
+    if (busyRef.current || !user) return;
+    try {
+      await deleteChatHistory(sessionId);
+    } catch {
+      /* Keep local reset available even if the server has nothing to delete. */
+    }
+    const sid = `ct-${crypto.randomUUID?.() || Date.now()}`;
+    localStorage.setItem('critics_talk_session_id', sid);
+    setSessionId(sid);
+    setStreamingContent('');
+    setIsTyping(false);
+    setMessages([{ ...WELCOME_MESSAGE, id: 'welcome' }]);
+    setSuggestedPrompts(DEFAULT_PROMPTS);
+  }, [sessionId, user]);
+
   if (!user) return null;
 
   return (
@@ -127,6 +144,7 @@ const ChatbotWidget = ({ user }) => {
         suggestedPrompts={suggestedPrompts}
         tasteSummary={tasteSummary}
         onSend={handleSend}
+        onClear={handleClear}
         disabled={isTyping}
       />
 

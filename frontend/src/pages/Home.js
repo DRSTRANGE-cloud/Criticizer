@@ -139,19 +139,18 @@ function addressStorageKey(userId) {
 
 function inferRegionFromAddress(address) {
   const text = address.toLowerCase();
+  if (!text.trim()) return { region: "US", label: "your area" };
   if (/\b(global|international|worldwide|world)\b/.test(text)) return "GLOBAL";
-  if (
-    /\b(india|bharat|mumbai|delhi|bengaluru|bangalore|pune|hyderabad|kolkata|chennai)\b/.test(
-      text,
-    )
-  ) {
-    return "IN";
-  }
-  if (/\b(japan|tokyo|osaka|kyoto|sapporo)\b/.test(text)) return "JP";
-  if (/\b(korea|south korea|seoul|busan|incheon)\b/.test(text)) return "KR";
-  if (/\b(canada|toronto|vancouver|montreal)\b/.test(text)) return "CA";
-  if (/\b(uk|united kingdom|london|manchester)\b/.test(text)) return "GB";
-  return "US";
+  const places = [
+    { region: "IN", label: "India", re: /\b(india|bharat|maharashtra|mumbai|delhi|new delhi|karnataka|bengaluru|bangalore|pune|hyderabad|telangana|kolkata|west bengal|chennai|tamil nadu|kerala|kochi|ahmedabad|gujarat|jaipur|rajasthan|lucknow|uttar pradesh)\b/ },
+    { region: "JP", label: "Japan", re: /\b(japan|tokyo|osaka|kyoto|sapporo|yokohama)\b/ },
+    { region: "KR", label: "South Korea", re: /\b(korea|south korea|seoul|busan|incheon)\b/ },
+    { region: "CA", label: "Canada", re: /\b(canada|ontario|toronto|vancouver|montreal|quebec)\b/ },
+    { region: "GB", label: "United Kingdom", re: /\b(uk|united kingdom|england|scotland|london|manchester|birmingham)\b/ },
+    { region: "US", label: "United States", re: /\b(united states|usa|u\.s\.|california|new york|texas|florida|illinois|chicago|los angeles|san francisco|seattle|boston|atlanta|dallas|houston|miami)\b/ },
+  ];
+  const match = places.find((place) => place.re.test(text));
+  return match || { region: "US", label: "United States" };
 }
 
 function CinemaReleaseSection({
@@ -164,9 +163,10 @@ function CinemaReleaseSection({
   theaterMeta,
   loading,
 }) {
+  const navigate = useNavigate();
   const openCinemaSearch = (movie) => {
     const area = address || addressDraft || "near me";
-    const query = `${movie.title} tickets cinemas near ${area}`;
+    const query = `${movie.title} tickets theaters cinemas address ${area}`;
     window.open(
       `https://www.google.com/maps/search/${encodeURIComponent(query)}`,
       "_blank",
@@ -176,6 +176,10 @@ function CinemaReleaseSection({
 
   const isUpcomingFallback = !movies.length && upcoming.length > 0;
   const displayMovies = (movies.length ? movies : upcoming).slice(0, 4);
+  const goToMovie = (movie) => {
+    const slug = movie.slug || (movie.media_type === "tv" ? `tv-${movie.id}` : String(movie.id));
+    navigate(`/movie/${slug}`);
+  };
 
   return (
     <section className="rounded-3xl border border-white/10 bg-[#101010]/90 p-6 overflow-hidden">
@@ -235,23 +239,33 @@ function CinemaReleaseSection({
             />
           ))
           : displayMovies.map((movie) => (
-            <div
+            <motion.article
               key={`cinema-${movie.slug || movie.id}`}
-              className="rounded-2xl border border-white/10 bg-black/30 overflow-hidden"
+              className="group rounded-2xl border border-white/10 bg-black/30 overflow-hidden transition hover:border-red-400/50 hover:bg-black/45"
+              whileHover={{ y: -4 }}
             >
-              <div
-                className="h-44 bg-cover bg-center"
-                style={{
-                  backgroundImage:
-                    movie.backdrop_path || movie.poster_path
-                      ? `linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.08)), url(${movie.backdrop_path || movie.poster_path})`
-                      : undefined,
-                }}
-              />
+              <button
+                type="button"
+                onClick={() => goToMovie(movie)}
+                className="block w-full text-left"
+                aria-label={`Open details for ${movie.title}`}
+              >
+                <div
+                  className="h-44 bg-cover bg-center"
+                  style={{
+                    backgroundImage:
+                      movie.backdrop_path || movie.poster_path
+                        ? `linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.08)), url(${movie.backdrop_path || movie.poster_path})`
+                        : undefined,
+                  }}
+                />
+              </button>
               <div className="p-4">
-                <h3 className="text-white font-semibold leading-snug line-clamp-2 min-h-[2.75rem]">
-                  {movie.title}
-                </h3>
+                <button type="button" onClick={() => goToMovie(movie)} className="block w-full text-left">
+                  <h3 className="text-white font-semibold leading-snug line-clamp-2 min-h-[2.75rem]">
+                    {movie.title}
+                  </h3>
+                </button>
                 <div className="mt-3 flex items-center gap-2 text-sm text-gray-400">
                   <FaCalendarAlt className="text-red-300" />
                   <span>{formatReleaseDate(movie.release_date)}</span>
@@ -281,7 +295,7 @@ function CinemaReleaseSection({
                   Find Nearby Theaters
                 </button>
               </div>
-            </div>
+            </motion.article>
           ))}
       </div>
     </section>
@@ -336,7 +350,8 @@ const Home = ({ user, onOpenAuth }) => {
   const fetchTheaters = useCallback(async () => {
     setTheaterLoading(true);
     try {
-      const region = inferRegionFromAddress(localAddress);
+      const inferred = inferRegionFromAddress(localAddress);
+      const region = typeof inferred === "string" ? inferred : inferred.region;
       const theaterRes = await api.get("/api/movies/theaters", {
         params: { region, page: 1 },
       });
@@ -344,7 +359,7 @@ const Home = ({ user, onOpenAuth }) => {
       setUpcomingMovies(theaterRes.data.upcoming || []);
       setTheaterMeta({
         region: theaterRes.data.region,
-        region_label: theaterRes.data.region_label,
+        region_label: localAddress || theaterRes.data.region_label,
         release_status: theaterRes.data.release_status,
         availability: theaterRes.data.availability,
       });
@@ -532,11 +547,11 @@ const Home = ({ user, onOpenAuth }) => {
   const heroMovies = useMemo(() => {
     const seen = new Set();
     const merged = [
+      ...nowPlayingMovies,
       ...trendingMovies,
       ...categoryRows.hollywood,
       ...categoryRows.international,
       ...mixedTrending,
-      ...nowPlayingMovies,
     ];
     return merged.filter((item) => {
       const key = item?.slug || item?.id;

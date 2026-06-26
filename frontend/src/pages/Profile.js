@@ -16,6 +16,7 @@ const Profile = ({ user }) => {
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
+  const [avatarFailed, setAvatarFailed] = useState(false);
 
   const isSelf = user?.user_id === userId;
 
@@ -64,6 +65,7 @@ const Profile = ({ user }) => {
       setLoading(false);
       return;
     }
+    setAvatarFailed(false);
     setLoading(true);
     loadProfile()
       .catch((error) => {
@@ -98,6 +100,7 @@ const Profile = ({ user }) => {
   }
 
   const ratingBreakdown = profile.rating_breakdown || {};
+  const profileInitial = (profile.username || profile.email || 'U').trim().charAt(0).toUpperCase();
 
   const topRatingLabel = (() => {
     let winner = null;
@@ -132,12 +135,23 @@ const Profile = ({ user }) => {
         <section className="rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(244,114,182,0.16),transparent_35%),linear-gradient(140deg,#151518,#0c0c0f)] p-8 shadow-xl">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="flex flex-col md:flex-row md:items-center gap-6">
-              <img
-                src={profile.avatar}
-                alt={profile.username}
-                className="w-24 h-24 rounded-full border border-white/10 object-cover"
-                data-testid="profile-avatar"
-              />
+              {profile.avatar && !avatarFailed ? (
+                <img
+                  src={profile.avatar}
+                  alt={profile.username}
+                  onError={() => setAvatarFailed(true)}
+                  className="w-24 h-24 rounded-full border border-white/10 object-cover shadow-xl shadow-black/40"
+                  data-testid="profile-avatar"
+                />
+              ) : (
+                <div
+                  className="flex h-24 w-24 items-center justify-center rounded-full border border-white/15 bg-gradient-to-br from-red-500 via-fuchsia-600 to-indigo-600 text-4xl font-black text-white shadow-xl shadow-red-950/40"
+                  data-testid="profile-avatar"
+                  aria-label={profile.username}
+                >
+                  {profileInitial}
+                </div>
+              )}
               <div>
                 <h1 className="text-4xl font-bold text-white" data-testid="profile-username">
                   {profile.username}

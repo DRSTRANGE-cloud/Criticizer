@@ -116,21 +116,39 @@ async def _verify_github(code: str, redirect_uri: str | None) -> dict:
     }
     if redirect_uri:
         token_data["redirect_uri"] = redirect_uri
-    async with httpx.AsyncClient(timeout=12) as client:
-        token_response = await client.post(
-            "https://github.com/login/oauth/access_token",
-            headers={"Accept": "application/json"},
-            data=token_data,
-        )
-        token_payload = token_response.json()
-        access_token = token_payload.get("access_token")
-        if token_response.status_code != 200 or not access_token:
-            message = token_payload.get("error_description") or token_payload.get("error") or "Invalid GitHub authorization code"
-            raise HTTPException(status_code=401, detail=f"GitHub token exchange failed: {message}")
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": "Criticizer OAuth",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=20, trust_env=False) as client:
+            token_response = await client.post(
+                "https://github.com/login/oauth/access_token",
+                headers=headers,
+                data=token_data,
+            )
+            try:
+                token_payload = token_response.json()
+            except ValueError:
+                raise HTTPException(status_code=502, detail="GitHub token endpoint returned an invalid response")
 
-        headers = {"Authorization": f"Bearer {access_token}", "Accept": "application/vnd.github+json"}
-        user_response = await client.get("https://api.github.com/user", headers=headers)
-        email_response = await client.get("https://api.github.com/user/emails", headers=headers)
+            access_token = token_payload.get("access_token")
+            if token_response.status_code != 200 or not access_token:
+                message = token_payload.get("error_description") or token_payload.get("error") or "Invalid GitHub authorization code"
+                raise HTTPException(status_code=401, detail=f"GitHub token exchange failed: {message}")
+
+            api_headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Accept": "application/vnd.github+json",
+                "User-Agent": "Criticizer OAuth",
+                "X-GitHub-Api-Version": "2022-11-28",
+            }
+            user_response = await client.get("https://api.github.com/user", headers=api_headers)
+            email_response = await client.get("https://api.github.com/user/emails", headers=api_headers)
+    except HTTPException:
+        raise
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"GitHub OAuth request failed: {exc.__class__.__name__}") from exc
     if user_response.status_code != 200:
         raise HTTPException(status_code=401, detail=f"Unable to verify GitHub user: {user_response.text}")
     user_payload = user_response.json()

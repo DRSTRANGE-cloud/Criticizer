@@ -4,6 +4,31 @@ import { FaBars, FaBookmark, FaFilm, FaHome, FaLayerGroup, FaLock, FaSearch, FaS
 import { AnimatePresence, motion } from "framer-motion";
 import api from "../services/api";
 
+function UserAvatar({ user, size = "h-8 w-8" }) {
+  const [failed, setFailed] = useState(false);
+  const initial = (user?.username || user?.email || "U").trim().charAt(0).toUpperCase();
+  if (user?.avatar && !failed) {
+    return (
+      <img
+        src={user.avatar}
+        alt={user.username}
+        onError={() => setFailed(true)}
+        className={`${size} rounded-full object-cover ring-2 ring-transparent transition group-hover:ring-red-500/50`}
+        loading="eager"
+        decoding="async"
+      />
+    );
+  }
+  return (
+    <span
+      className={`${size} inline-flex items-center justify-center rounded-full bg-gradient-to-br from-red-500 via-fuchsia-600 to-indigo-600 text-sm font-black text-white shadow-lg shadow-red-950/35 ring-2 ring-white/10`}
+      aria-label={user?.username || "User"}
+    >
+      {initial}
+    </span>
+  );
+}
+
 const Navbar = ({ user, onLogout, onOpenAuth }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -250,11 +275,7 @@ const Navbar = ({ user, onLogout, onOpenAuth }) => {
 
                 <div className="relative group hidden sm:block">
                   <button className="flex items-center gap-2 text-white hover:text-red-400 transition px-2 py-1 rounded-xl">
-                    <img
-                      src={user.avatar}
-                      alt={user.username}
-                      className="w-8 h-8 rounded-full ring-2 ring-transparent group-hover:ring-red-500/50 transition"
-                    />
+                    <UserAvatar user={user} />
                     <span className="hidden lg:inline text-sm">{user.username}</span>
                   </button>
 
@@ -344,7 +365,7 @@ const Navbar = ({ user, onLogout, onOpenAuth }) => {
 
               {user && (
                 <div className="mt-6 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-                  <img src={user.avatar} alt={user.username} className="h-11 w-11 rounded-full object-cover" />
+                  <UserAvatar user={user} size="h-11 w-11" />
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-white">{user.username}</p>
                     <p className="truncate text-xs text-gray-500">{user.email}</p>
