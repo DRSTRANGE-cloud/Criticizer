@@ -121,7 +121,7 @@ def _normalize_people(credits: dict[str, Any]) -> tuple[list[dict[str, Any]], li
             "known_for": c.get("known_for_department") or "Acting",
             "order": _safe_int(c.get("order"), 999),
         }
-        for c in (credits.get("cast") or [])[:40]
+        for c in (credits.get("cast") or [])[:15]
         if c.get("id") and c.get("name")
     ]
     crew = [

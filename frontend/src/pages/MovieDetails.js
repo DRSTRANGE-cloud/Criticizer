@@ -12,8 +12,6 @@ import {
   FaHeart,
   FaComment,
   FaArrowLeft,
-  FaChevronLeft,
-  FaChevronRight,
   FaClock,
   FaLayerGroup,
 } from "react-icons/fa";
@@ -174,6 +172,7 @@ const MovieDetails = ({ user, onOpenAuth }) => {
   });
   const [submitting, setSubmitting] = useState(false);
   const [backdropLoaded, setBackdropLoaded] = useState(false);
+  const [showInfoPanel, setShowInfoPanel] = useState(false);
 
   const meterRows = useMemo(() => {
     return RATING_OPTIONS.map((o) => ({
@@ -381,15 +380,15 @@ const MovieDetails = ({ user, onOpenAuth }) => {
   const runtimeLabel = isTv
     ? movie.episode_runtime
       ? `${movie.episode_runtime} min per episode`
-      : compactList((movie.episode_run_time || []).map((m) => `${m} min`), "Runtime TBA")
+      : compactList((movie.episode_run_time || []).map((m) => `${m} min`), "Not listed")
     : movie.runtime
       ? `${movie.runtime} min`
-      : "Runtime TBA";
+      : "Not listed";
   const statCards = isTv
     ? [
         { label: "Seasons", value: movie.number_of_seasons ? `${movie.number_of_seasons}` : "TBA", icon: FaLayerGroup },
         { label: "Episodes", value: movie.number_of_episodes ? `${movie.number_of_episodes}` : "TBA", icon: FaPlay },
-        { label: "Episode Runtime", value: runtimeLabel, icon: FaClock },
+        { label: "Status", value: movie.status || "Not listed", icon: FaClock },
       ]
     : [
         { label: "Runtime", value: runtimeLabel, icon: FaClock },
@@ -549,39 +548,68 @@ const MovieDetails = ({ user, onOpenAuth }) => {
                   {statCards.map((item) => {
                     const Icon = item.icon;
                     return (
-                      <div
+                      <motion.div
                         key={item.label}
-                        className="flex min-h-[104px] items-center gap-4 rounded-2xl border border-white/10 bg-black/35 px-4 py-4 backdrop-blur transition hover:border-red-400/35 hover:bg-black/45"
+                        className="group flex min-h-[88px] items-center gap-3 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 backdrop-blur transition hover:border-red-400/35 hover:bg-black/40 hover:shadow-[0_14px_35px_rgba(220,38,38,0.14)]"
+                        whileHover={{ y: -4, scale: 1.015 }}
+                        transition={{ type: "spring", stiffness: 320, damping: 24 }}
                       >
-                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-600/15 text-red-200">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-600/10 text-red-200 transition group-hover:bg-red-600/20 group-hover:text-white">
                           <Icon />
                         </span>
                         <span className="min-w-0">
                           <span className="block text-[10px] uppercase tracking-[0.22em] text-gray-500">
                             {item.label}
                           </span>
-                          <span className="mt-1 block text-2xl font-black leading-tight text-white break-words">
+                          <span className="mt-1 block text-xl font-black leading-tight text-white break-words">
                             {item.value}
                           </span>
                         </span>
-                      </div>
+                      </motion.div>
                     );
                   })}
                 </div>
 
                 {metadataRows.length > 0 && (
                   <section className="mb-6 lg:max-w-3xl">
-                    <h2 className="mb-3 text-sm font-bold uppercase tracking-[0.24em] text-gray-400">
-                      {isTv ? "Series Information" : "Movie Information"}
-                    </h2>
-                    <div className="divide-y divide-white/10 rounded-2xl border border-white/10 bg-black/20 px-4 backdrop-blur">
-                      {metadataRows.map(([label, value]) => (
-                        <div key={label} className="grid grid-cols-1 gap-1 py-3 sm:grid-cols-[150px_minmax(0,1fr)] sm:gap-4">
-                          <dt className="text-xs uppercase tracking-[0.18em] text-gray-500">{label}</dt>
-                          <dd className="text-sm font-medium text-gray-100 break-words">{value}</dd>
-                        </div>
-                      ))}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowInfoPanel((prev) => !prev)}
+                      className="flex w-full items-center justify-between gap-4 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-left backdrop-blur transition hover:border-red-400/35 hover:bg-black/35"
+                      aria-expanded={showInfoPanel}
+                    >
+                      <span className="inline-flex min-w-0 items-center gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-red-200">
+                          <FaLayerGroup />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-sm font-bold uppercase tracking-[0.22em] text-gray-300">
+                            {isTv ? "Series Information" : "Movie Information"}
+                          </span>
+                          <span className="mt-0.5 block truncate text-xs text-gray-500">
+                            Status, language, production, dates and original title
+                          </span>
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-sm font-semibold text-red-200">
+                        {showInfoPanel ? "Hide" : "View"}
+                      </span>
+                    </button>
+                    {showInfoPanel && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="mt-3 divide-y divide-white/10 rounded-2xl border border-white/10 bg-black/20 px-4 backdrop-blur"
+                      >
+                        {metadataRows.map(([label, value]) => (
+                          <div key={label} className="grid grid-cols-1 gap-1 py-3 sm:grid-cols-[150px_minmax(0,1fr)] sm:gap-4">
+                            <dt className="text-xs uppercase tracking-[0.18em] text-gray-500">{label}</dt>
+                            <dd className="text-sm font-medium text-gray-100 break-words">{value}</dd>
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
                   </section>
                 )}
 
@@ -623,97 +651,54 @@ const MovieDetails = ({ user, onOpenAuth }) => {
         </div>
       </div>
 
-     {cast.length > 0 && (
-  <div className="bg-[#0B0B0B] border-t border-white/5 py-12">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex items-end justify-between gap-4 mb-6">
-        <div>
-          <h2 className="mt-2 text-2xl font-bold ">Top Cast</h2>
-        </div>
-        <span className="shrink-0 text-xs uppercase tracking-[0.25em] text-gray-500">{cast.length} actors</span>
-      </div>
-      <div className="relative group/slider">
-        {/* Left Arrow */}
-        <button
-          type="button"
-          onClick={() => {
-            document.getElementById('cast-slider').scrollBy({ left: -320, behavior: 'smooth' });
-          }}
-          className="absolute left-1 top-1/2 -translate-y-1/2 z-10 hidden w-11 h-11 rounded-full bg-black/80 border border-white/10 text-white md:flex items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all duration-300 hover:bg-red-600/80 hover:border-red-500/50 shadow-xl backdrop-blur"
-        >
-          <FaChevronLeft />
-        </button>
+      {cast.length > 0 && (
+        <div className="bg-[#0B0B0B] border-t border-white/5 py-12">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="mb-6 flex items-end justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] text-red-300/80">Cast</p>
+                <h2 className="mt-2 text-2xl font-bold text-white">Main Ensemble</h2>
+              </div>
+              <span className="shrink-0 text-xs uppercase tracking-[0.25em] text-gray-500">{cast.length} credits</span>
+            </div>
 
-        {/* Right Arrow */}
-        <button
-          type="button"
-          onClick={() => {
-            document.getElementById('cast-slider').scrollBy({ left: 320, behavior: 'smooth' });
-          }}
-          className="absolute right-1 top-1/2 -translate-y-1/2 z-10 hidden w-11 h-11 rounded-full bg-black/80 border border-white/10 text-white md:flex items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all duration-300 hover:bg-red-600/80 hover:border-red-500/50 shadow-xl backdrop-blur"
-        >
-          <FaChevronRight />
-        </button>
-
-        {/* Fade edges */}
-        <div className="pointer-events-none absolute left-0 top-0 h-full w-16 bg-gradient-to-r from-[#0B0B0B] to-transparent z-[1]" />
-        <div className="pointer-events-none absolute right-0 top-0 h-full w-16 bg-gradient-to-l from-[#0B0B0B] to-transparent z-[1]" />
-
-        {/* Slider Container — 2 rows via grid */}
-        <div
-          id="cast-slider"
-          className="overflow-x-auto scrollbar-hide rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(220,38,38,0.12),transparent_32%),rgba(255,255,255,0.03)] backdrop-blur px-4 sm:px-6 py-5"
-          style={{ scrollbarWidth: 'none' }}
-        >
-          <div
-            className="flex gap-4 sm:gap-5"
-          >
-            {cast.map((c) => (
-              <motion.a
-                key={c.id}
-                href={`https://www.google.com/search?q=${encodeURIComponent(c.name + ' actor')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-36 sm:w-40 text-left group cursor-pointer shrink-0"
-                whileHover={{ y: -6, scale: 1.02 }}
-                transition={{ type: 'spring', stiffness: 320, damping: 22 }}
-              >
-                <div className="relative aspect-[3/4] w-full rounded-2xl overflow-hidden bg-white/5 border border-white/10 mb-3 shadow-lg group-hover:border-red-500/40 group-hover:shadow-red-500/20 group-hover:shadow-xl transition-all duration-300">
-                  {c.profile_path ? (
-                    <img
-                      src={c.profile_path}
-                      alt={c.name}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-950 text-3xl font-black text-white/70">
-                      {(c.name || "?").charAt(0)}
+            <div className="rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(220,38,38,0.12),transparent_34%),rgba(255,255,255,0.025)] p-4 sm:p-5">
+              <div className="grid auto-cols-[7.5rem] grid-flow-col grid-rows-1 gap-x-4 overflow-x-auto pb-3 sm:auto-cols-[8.5rem] lg:auto-cols-[9rem] [scrollbar-width:thin] [scrollbar-color:rgba(220,38,38,0.4)_rgba(255,255,255,0.05)] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-red-500/40 [&::-webkit-scrollbar-thumb:hover]:bg-red-500/70">
+                {cast.slice(0, 15).map((c) => (
+                  <motion.a
+                    key={`${c.id}-${c.character || ''}`}
+                    href={`https://www.google.com/search?q=${encodeURIComponent(`${c.name} actor`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group rounded-3xl border border-white/0 px-2 py-3 text-center transition hover:border-red-400/25 hover:bg-white/[0.04]"
+                    whileHover={{ y: -3 }}
+                    transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+                  >
+                    <div className="mx-auto h-20 w-20 overflow-hidden rounded-full border border-white/10 bg-white/5 ring-4 ring-white/[0.03] transition group-hover:ring-red-500/15 sm:h-24 sm:w-24">
+                      {c.profile_path ? (
+                        <img
+                          src={c.profile_path}
+                          alt={c.name}
+                          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-950 text-2xl font-black text-white/70">
+                          {(c.name || '?').charAt(0)}
+                        </div>
+                      )}
                     </div>
-                  )}
-                  {/* Hover overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-end pb-2 px-1">
-                    <p className="text-[9px] text-red-300 font-semibold tracking-wide">View Info</p>
-                  </div>
-                </div>
-                <p className="text-white text-sm font-semibold leading-tight group-hover:text-red-300 transition-colors duration-200 line-clamp-2">
-                  {c.name}
-                </p>
-                <p className="text-gray-400 text-xs line-clamp-2 mt-1">
-                  {c.character || "Character TBA"}
-                </p>
-                <p className="text-gray-600 text-[10px] uppercase tracking-wider line-clamp-1 mt-1">
-                  {c.known_for || "Acting"}
-                </p>
-              </motion.a>
-            ))}
+                    <p className="mt-3 line-clamp-2 text-sm font-bold leading-tight text-white group-hover:text-red-200">{c.name}</p>
+                    <p className="mt-1 line-clamp-2 text-xs leading-snug text-gray-400">{c.character || 'Character TBA'}</p>
+                    <p className="mt-1 text-[10px] uppercase tracking-wider text-gray-600">{c.known_for || 'Acting'}</p>
+                  </motion.a>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
-)}
+      )}
 
       {whereToWatch.length > 0 && (
         <div className="bg-[#0B0B0B] border-t border-white/5 py-10">
