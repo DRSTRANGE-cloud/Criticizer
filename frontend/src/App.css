@@ -16,3 +16,6 @@ input:-webkit-autofill:active {
   border-radius: 1rem;
   transition: background-color 5000s ease-in-out 0s;
 }
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

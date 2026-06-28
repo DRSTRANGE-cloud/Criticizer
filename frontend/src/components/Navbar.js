@@ -116,6 +116,63 @@ const Navbar = ({ user, onLogout, onOpenAuth }) => {
     navigate(`/movie/${slug}`);
   };
 
+  const renderSearchBox = (mobile = false) => (
+    <div className={`relative w-full ${mobile ? "md:hidden" : "mx-auto hidden max-w-xl md:block"}`} ref={mobile ? null : searchRef}>
+      <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+      {!user && <FaLock className="absolute right-4 top-1/2 -translate-y-1/2 text-red-400/70" />}
+      <input
+        type="search"
+        value={query}
+        onChange={(event) => {
+          if (!user) return;
+          setQuery(event.target.value);
+          setSearchOpen(true);
+        }}
+        onFocus={handleSearchFocus}
+        onClick={handleSearchFocus}
+        readOnly={!user}
+        placeholder={user ? "Search movies and series" : "Login to search titles"}
+        className={`w-full rounded-2xl border text-white pl-11 pr-10 py-2.5 outline-none transition ${
+          user
+            ? "bg-white/[0.04] border-white/10 focus:border-red-500/60 focus:ring-2 focus:ring-red-500/15 hover:border-white/20"
+            : "bg-white/[0.02] border-white/10 cursor-pointer"
+        }`}
+      />
+      {!user && (
+        <button type="button" onClick={() => onOpenAuth("login")} className="absolute inset-0 rounded-2xl" aria-label="Login to search" />
+      )}
+      {user && searchOpen && query.trim() && (
+        <div className={`absolute left-0 right-0 top-full mt-2 rounded-2xl border border-white/10 bg-[#0a0a0a]/95 backdrop-blur-2xl shadow-2xl overflow-hidden ${mobile ? "z-[70]" : ""}`}>
+          {loading ? (
+            <div className="px-4 py-4 text-sm text-zinc-400">Searching...</div>
+          ) : results.length === 0 ? (
+            <div className="px-4 py-4 text-sm text-zinc-400">No matches found</div>
+          ) : (
+            <ul className="max-h-96 overflow-y-auto py-2">
+              {results.map((item) => (
+                <li key={`${mobile ? "m" : "d"}-${item.media_type || "movie"}-${item.id}`}>
+                  <button type="button" onClick={() => goToMovie(item)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 transition text-left">
+                    {item.poster_path ? (
+                      <img src={item.poster_path} alt="" className="w-10 h-14 rounded-lg object-cover flex-none" loading="lazy" />
+                    ) : (
+                      <div className="w-10 h-14 rounded-lg bg-white/5 flex-none" />
+                    )}
+                    <div className="min-w-0">
+                      <div className="text-white font-medium truncate">{item.title}</div>
+                      <div className="text-xs text-zinc-500 capitalize">
+                        {item.media_type || "movie"} {item.release_date ? `- ${item.release_date.slice(0, 4)}` : ""}
+                      </div>
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   const isActive = (path) => location.pathname === path;
 
   const menuItems = user
@@ -327,6 +384,9 @@ const Navbar = ({ user, onLogout, onOpenAuth }) => {
               </>
             )}
           </div>
+        </div>
+        <div className="pb-3 md:hidden">
+          {renderSearchBox(true)}
         </div>
       </div>
       <AnimatePresence>

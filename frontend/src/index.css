@@ -19,6 +19,18 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: #000;
   color: #fff;
+  overflow-x: hidden;
+}
+
+html {
+  overflow-x: hidden;
+}
+
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
 }
 
 code {

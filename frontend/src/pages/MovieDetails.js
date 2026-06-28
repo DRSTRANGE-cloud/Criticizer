@@ -12,6 +12,10 @@ import {
   FaHeart,
   FaComment,
   FaArrowLeft,
+  FaChevronLeft,
+  FaChevronRight,
+  FaClock,
+  FaLayerGroup,
 } from "react-icons/fa";
 import MovieCard from "../components/MovieCard";
 import { RATING_OPTIONS } from "../constants/ratings";
@@ -66,6 +70,18 @@ const WATCH_STATES = [
   { value: "watchlist", label: "My List", icon: FaBookmark },
   { value: "watched", label: "Watched", icon: FaCheckCircle },
 ];
+
+function formatDetailDate(value) {
+  if (!value) return null;
+  const d = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function compactList(rows, fallback = null) {
+  const values = (rows || []).filter(Boolean);
+  return values.length ? values.join(", ") : fallback;
+}
 
 function MeterDonut({ segments, score, avgStars, hasVotes }) {
   const active = segments.filter((s) => s.pct > 0);
@@ -359,19 +375,50 @@ const MovieDetails = ({ user, onOpenAuth }) => {
   const backdropPreview = movie.backdrop_preview || movie.poster_path;
   const cast = movie.cast || [];
   const companies = movie.production_companies || [];
+  const networks = movie.networks || [];
+  const isTv = movie.media_type === "tv";
   const creditLabel = movie.media_type === "tv" ? "Creator" : "Director";
-  const infoCards = [
-    { label: "Release", value: movie.release_date || "TBA" },
-    {
-      label: "Runtime",
-      value: movie.runtime ? `${movie.runtime} min` : "Unknown",
-    },
-    { label: creditLabel, value: movie.director || "Unknown" },
-    {
-      label: "Primary Studio",
-      value: movie.production_company || companies[0]?.name || "Unknown",
-    },
-  ];
+  const runtimeLabel = isTv
+    ? movie.episode_runtime
+      ? `${movie.episode_runtime} min per episode`
+      : compactList((movie.episode_run_time || []).map((m) => `${m} min`), "Runtime TBA")
+    : movie.runtime
+      ? `${movie.runtime} min`
+      : "Runtime TBA";
+  const statCards = isTv
+    ? [
+        { label: "Seasons", value: movie.number_of_seasons ? `${movie.number_of_seasons}` : "TBA", icon: FaLayerGroup },
+        { label: "Episodes", value: movie.number_of_episodes ? `${movie.number_of_episodes}` : "TBA", icon: FaPlay },
+        { label: "Episode Runtime", value: runtimeLabel, icon: FaClock },
+      ]
+    : [
+        { label: "Runtime", value: runtimeLabel, icon: FaClock },
+        { label: "Release", value: formatDetailDate(movie.release_date) || "TBA", icon: FaPlay },
+        { label: creditLabel, value: movie.director || "TBA", icon: FaLayerGroup },
+      ];
+  const metadataRows = isTv
+    ? [
+        ["Status", movie.status],
+        ["Network", networks[0]?.name],
+        ["Language", movie.original_language_name || movie.original_language],
+        ["First Air Date", formatDetailDate(movie.first_air_date)],
+        ["Last Air Date", formatDetailDate(movie.last_air_date)],
+        ["Original Title", movie.original_title],
+        ["Country", compactList(movie.origin_country || [])],
+        ["Production", companies.slice(0, 3).map((c) => c.name).join(", ")],
+      ].filter(([, value]) => value)
+    : [
+        ["Status", movie.status],
+        ["Language", movie.original_language_name || movie.original_language],
+        ["Original Title", movie.original_title],
+        ["Country", compactList(movie.origin_country || [])],
+        ["Production", companies.slice(0, 3).map((c) => c.name).join(", ")],
+      ].filter(([, value]) => value);
+  const detailChips = [
+    movie.original_title && movie.original_title !== movie.title ? ["Original title", movie.original_title] : null,
+    movie.origin_country?.length ? ["Country", compactList(movie.origin_country)] : null,
+    companies.length ? ["Studios", companies.slice(0, 3).map((c) => c.name).join(", ")] : null,
+  ].filter(Boolean);
   return (
     <motion.div
       className="min-h-screen bg-[#0B0B0B]"
@@ -479,27 +526,64 @@ const MovieDetails = ({ user, onOpenAuth }) => {
                     </span>
                   ))}
                 </div>
+                {detailChips.length > 0 && (
+                  <div className="mb-6 flex flex-wrap gap-2">
+                    {detailChips.map(([label, value]) => (
+                      <span
+                        key={label}
+                        className="rounded-full border border-white/10 bg-black/30 px-3 py-1.5 text-xs text-gray-300"
+                      >
+                        <span className="text-gray-500">{label}: </span>
+                        <span className="text-white">{value}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <p
                   className="text-gray-200 text-base sm:text-lg leading-relaxed mb-6 max-w-3xl line-clamp-5"
                   data-testid="movie-overview"
                 >
                   {movie.overview}
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6 lg:max-w-3xl">
-                  {infoCards.map((item) => (
-                    <div
-                      key={item.label}
-                      className="rounded-2xl border border-white/10 bg-black/25 px-4 py-4 backdrop-blur"
-                    >
-                      <p className="text-[10px] uppercase tracking-[0.25em] text-gray-500">
-                        {item.label}
-                      </p>
-                      <p className="mt-2 text-sm font-semibold text-white">
-                        {item.value}
-                      </p>
-                    </div>
-                  ))}
+                <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 lg:max-w-3xl">
+                  {statCards.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <div
+                        key={item.label}
+                        className="flex min-h-[104px] items-center gap-4 rounded-2xl border border-white/10 bg-black/35 px-4 py-4 backdrop-blur transition hover:border-red-400/35 hover:bg-black/45"
+                      >
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-600/15 text-red-200">
+                          <Icon />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-[10px] uppercase tracking-[0.22em] text-gray-500">
+                            {item.label}
+                          </span>
+                          <span className="mt-1 block text-2xl font-black leading-tight text-white break-words">
+                            {item.value}
+                          </span>
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
+
+                {metadataRows.length > 0 && (
+                  <section className="mb-6 lg:max-w-3xl">
+                    <h2 className="mb-3 text-sm font-bold uppercase tracking-[0.24em] text-gray-400">
+                      {isTv ? "Series Information" : "Movie Information"}
+                    </h2>
+                    <div className="divide-y divide-white/10 rounded-2xl border border-white/10 bg-black/20 px-4 backdrop-blur">
+                      {metadataRows.map(([label, value]) => (
+                        <div key={label} className="grid grid-cols-1 gap-1 py-3 sm:grid-cols-[150px_minmax(0,1fr)] sm:gap-4">
+                          <dt className="text-xs uppercase tracking-[0.18em] text-gray-500">{label}</dt>
+                          <dd className="text-sm font-medium text-gray-100 break-words">{value}</dd>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
 
                 <div className="flex flex-wrap gap-3">
                   {movie.trailer_key && (
@@ -539,51 +623,97 @@ const MovieDetails = ({ user, onOpenAuth }) => {
         </div>
       </div>
 
-      {cast.length > 0 && (
-        <div className="bg-[#0B0B0B] border-t border-white/5 py-10">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="text-2xl font-bold text-white mb-6">Top cast</h2>
-            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur px-4 py-4">
-              {cast.map((c) => (
-                <motion.div
-                  key={c.id}
-                  className="flex-none w-28 text-center group"
-                  whileHover={{ y: -2 }}
-                >
-                  <div className="relative w-28 h-28 mx-auto rounded-full overflow-hidden bg-white/5 border border-white/10 mb-2">
-                    {c.profile_path ? (
-                      <img
-                        src={c.profile_path}
-                        alt={c.name}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">
-                        No photo
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 transition flex flex-col items-center justify-center px-2">
-                      <p className="text-[10px] text-white font-semibold text-center leading-tight">
-                        {c.name}
-                      </p>
-                      <p className="text-[10px] text-gray-300 text-center mt-1">
-                        {c.character}
-                      </p>
+     {cast.length > 0 && (
+  <div className="bg-[#0B0B0B] border-t border-white/5 py-12">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="flex items-end justify-between gap-4 mb-6">
+        <div>
+          <h2 className="mt-2 text-2xl font-bold ">Top Cast</h2>
+        </div>
+        <span className="shrink-0 text-xs uppercase tracking-[0.25em] text-gray-500">{cast.length} actors</span>
+      </div>
+      <div className="relative group/slider">
+        {/* Left Arrow */}
+        <button
+          type="button"
+          onClick={() => {
+            document.getElementById('cast-slider').scrollBy({ left: -320, behavior: 'smooth' });
+          }}
+          className="absolute left-1 top-1/2 -translate-y-1/2 z-10 hidden w-11 h-11 rounded-full bg-black/80 border border-white/10 text-white md:flex items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all duration-300 hover:bg-red-600/80 hover:border-red-500/50 shadow-xl backdrop-blur"
+        >
+          <FaChevronLeft />
+        </button>
+
+        {/* Right Arrow */}
+        <button
+          type="button"
+          onClick={() => {
+            document.getElementById('cast-slider').scrollBy({ left: 320, behavior: 'smooth' });
+          }}
+          className="absolute right-1 top-1/2 -translate-y-1/2 z-10 hidden w-11 h-11 rounded-full bg-black/80 border border-white/10 text-white md:flex items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all duration-300 hover:bg-red-600/80 hover:border-red-500/50 shadow-xl backdrop-blur"
+        >
+          <FaChevronRight />
+        </button>
+
+        {/* Fade edges */}
+        <div className="pointer-events-none absolute left-0 top-0 h-full w-16 bg-gradient-to-r from-[#0B0B0B] to-transparent z-[1]" />
+        <div className="pointer-events-none absolute right-0 top-0 h-full w-16 bg-gradient-to-l from-[#0B0B0B] to-transparent z-[1]" />
+
+        {/* Slider Container — 2 rows via grid */}
+        <div
+          id="cast-slider"
+          className="overflow-x-auto scrollbar-hide rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(220,38,38,0.12),transparent_32%),rgba(255,255,255,0.03)] backdrop-blur px-4 sm:px-6 py-5"
+          style={{ scrollbarWidth: 'none' }}
+        >
+          <div
+            className="flex gap-4 sm:gap-5"
+          >
+            {cast.map((c) => (
+              <motion.a
+                key={c.id}
+                href={`https://www.google.com/search?q=${encodeURIComponent(c.name + ' actor')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-36 sm:w-40 text-left group cursor-pointer shrink-0"
+                whileHover={{ y: -6, scale: 1.02 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+              >
+                <div className="relative aspect-[3/4] w-full rounded-2xl overflow-hidden bg-white/5 border border-white/10 mb-3 shadow-lg group-hover:border-red-500/40 group-hover:shadow-red-500/20 group-hover:shadow-xl transition-all duration-300">
+                  {c.profile_path ? (
+                    <img
+                      src={c.profile_path}
+                      alt={c.name}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-950 text-3xl font-black text-white/70">
+                      {(c.name || "?").charAt(0)}
                     </div>
+                  )}
+                  {/* Hover overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-end pb-2 px-1">
+                    <p className="text-[9px] text-red-300 font-semibold tracking-wide">View Info</p>
                   </div>
-                  <p className="text-white text-sm font-medium leading-tight">
-                    {c.name}
-                  </p>
-                  <p className="text-gray-500 text-xs line-clamp-2">
-                    {c.character}
-                  </p>
-                </motion.div>
-              ))}
-            </div>
+                </div>
+                <p className="text-white text-sm font-semibold leading-tight group-hover:text-red-300 transition-colors duration-200 line-clamp-2">
+                  {c.name}
+                </p>
+                <p className="text-gray-400 text-xs line-clamp-2 mt-1">
+                  {c.character || "Character TBA"}
+                </p>
+                <p className="text-gray-600 text-[10px] uppercase tracking-wider line-clamp-1 mt-1">
+                  {c.known_for || "Acting"}
+                </p>
+              </motion.a>
+            ))}
           </div>
         </div>
-      )}
+      </div>
+    </div>
+  </div>
+)}
 
       {whereToWatch.length > 0 && (
         <div className="bg-[#0B0B0B] border-t border-white/5 py-10">
@@ -611,7 +741,7 @@ const MovieDetails = ({ user, onOpenAuth }) => {
                     </p>
                     <p className="text-gray-500 text-xs capitalize">{p.type}</p>
                   </div>
-                  {p.web_url && (
+                  {p.web_url ? (
                     <a
                       href={p.web_url}
                       target="_blank"
@@ -620,6 +750,10 @@ const MovieDetails = ({ user, onOpenAuth }) => {
                     >
                       Watch <FaExternalLinkAlt className="text-xs" />
                     </a>
+                  ) : (
+                    <span className="text-xs font-semibold text-gray-500 whitespace-nowrap">
+                      Direct link unavailable
+                    </span>
                   )}
                 </div>
               ))}

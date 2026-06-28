@@ -118,8 +118,10 @@ def _normalize_people(credits: dict[str, Any]) -> tuple[list[dict[str, Any]], li
             "name": c.get("name"),
             "character": c.get("character"),
             "profile_path": _img(c.get("profile_path"), "w342"),
+            "known_for": c.get("known_for_department") or "Acting",
+            "order": _safe_int(c.get("order"), 999),
         }
-        for c in (credits.get("cast") or [])[:12]
+        for c in (credits.get("cast") or [])[:40]
         if c.get("id") and c.get("name")
     ]
     crew = [
@@ -451,9 +453,12 @@ def _details_common(details: dict[str, Any], *, media_type: str) -> dict[str, An
         "production_companies": _normalize_companies(production_rows),
         "production_countries": [c.get("iso_3166_1") for c in (details.get("production_countries") or []) if c.get("iso_3166_1")],
         "spoken_languages": [c.get("english_name") or c.get("name") for c in (details.get("spoken_languages") or []) if c.get("english_name") or c.get("name")],
+        "original_title": details.get("original_title") or details.get("original_name") or normalized.get("title"),
+        "original_language_name": (details.get("spoken_languages") or [{}])[0].get("english_name") if details.get("spoken_languages") else details.get("original_language"),
+        "origin_country": details.get("origin_country") or [c.get("iso_3166_1") for c in (details.get("production_countries") or []) if c.get("iso_3166_1")],
+        "status": details.get("status"),
         "collection": {"id": str(collection.get("id")), "name": collection.get("name")} if collection and collection.get("id") else None,
         "vote_count": _safe_int(details.get("vote_count")),
-        "status": details.get("status"),
         "crew": crew,
     }
     if details.get("poster_path"):
@@ -488,6 +493,13 @@ async def tv_details(tv_id: str) -> dict[str, Any]:
     out = {
         **common,
         "runtime": _safe_int((details.get("episode_run_time") or [0])[0] if details.get("episode_run_time") else 0),
+        "episode_runtime": _safe_int((details.get("episode_run_time") or [0])[0] if details.get("episode_run_time") else 0),
+        "episode_run_time": details.get("episode_run_time") or [],
+        "number_of_seasons": _safe_int(details.get("number_of_seasons")),
+        "number_of_episodes": _safe_int(details.get("number_of_episodes")),
+        "first_air_date": details.get("first_air_date") or "",
+        "last_air_date": details.get("last_air_date") or "",
+        "networks": _normalize_companies(details.get("networks") or []),
         "trailer_key": _trailer_key(details),
         "director": creator.get("name") if creator else None,
         "director_id": str(creator.get("id")) if creator and creator.get("id") else None,

@@ -68,6 +68,32 @@ def _dist_percentages(dist: dict[str, int]) -> dict[str, float]:
     return {k: round(100.0 * dist[k] / total, 1) for k in RATING_LABELS}
 
 
+def _provider_url(provider_name: str | None, title: str, year: str | None) -> str | None:
+    name = (provider_name or "").lower()
+    query = "+".join(part for part in [title, year or ""] if part).replace(" ", "+")
+    providers = [
+        (("netflix",), f"https://www.netflix.com/search?q={query}"),
+        (("prime", "amazon"), f"https://www.primevideo.com/search/ref=atv_nb_sr?phrase={query}"),
+        (("disney",), f"https://www.disneyplus.com/search?q={query}"),
+        (("apple",), f"https://tv.apple.com/search?term={query}"),
+        (("crunchyroll",), f"https://www.crunchyroll.com/search?q={query}"),
+        (("hulu",), f"https://www.hulu.com/search?q={query}"),
+        (("max", "hbo"), f"https://www.max.com/search?q={query}"),
+        (("paramount",), f"https://www.paramountplus.com/search/?query={query}"),
+        (("peacock",), f"https://www.peacocktv.com/search?q={query}"),
+        (("youtube",), f"https://www.youtube.com/results?search_query={query}+movie"),
+        (("google play", "google tv"), f"https://play.google.com/store/search?q={query}&c=movies"),
+        (("zee5",), f"https://www.zee5.com/search?q={query}"),
+        (("hotstar",), f"https://www.hotstar.com/in/search?q={query}"),
+        (("jio",), f"https://www.jiocinema.com/search/{query}"),
+        (("sonyliv",), f"https://www.sonyliv.com/search/{query}"),
+    ]
+    for keys, url in providers:
+        if any(key in name for key in keys):
+            return url
+    return None
+
+
 @router.get("/trending")
 async def get_trending_movies():
     try:
@@ -306,11 +332,9 @@ async def get_movie(movie_id: str):
             if name:
                 seen_names.add(name)
             entry = {**p}
-            if not entry.get("web_url") and entry.get("source") == "tmdb":
-                if media_type == "tv":
-                    entry["web_url"] = f"https://www.themoviedb.org/tv/{media_id}/watch"
-                else:
-                    entry["web_url"] = f"https://www.themoviedb.org/movie/{media_id}/watch"
+            direct_url = _provider_url(entry.get("provider_name"), movie.get("title") or "", year)
+            entry["web_url"] = entry.get("web_url") or direct_url
+            entry["direct_link_available"] = bool(entry.get("web_url"))
             where.append(entry)
 
         review_ids = [movie_id]
