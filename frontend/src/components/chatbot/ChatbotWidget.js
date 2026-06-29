@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaComments } from 'react-icons/fa';
+import { MdMovieFilter } from 'react-icons/md';
 import ChatWindow from './ChatWindow';
 import { DEFAULT_PROMPTS, WELCOME_MESSAGE } from './constants';
 import {
@@ -23,6 +23,7 @@ const ChatbotWidget = ({ user }) => {
   const [streamingContent, setStreamingContent] = useState('');
   const [tasteSummary, setTasteSummary] = useState(null);
   const [sessionId, setSessionId] = useState(() => getChatSessionId());
+  const [unreadCount, setUnreadCount] = useState(0);
   const busyRef = useRef(false);
 
   useEffect(() => {
@@ -34,9 +35,10 @@ const ChatbotWidget = ({ user }) => {
 
   useEffect(() => {
     if (!user || !isOpen) return;
+    setUnreadCount(0);
     const sid = getChatSessionId();
     setSessionId(sid);
-    fetchChatHistory(sid, 12).then((data) => {
+    fetchChatHistory(sid, 14).then((data) => {
       const rows = data.messages || [];
       if (rows.length === 0) return;
       const mapped = rows.map((r) => ({
@@ -44,6 +46,7 @@ const ChatbotWidget = ({ user }) => {
         role: r.role,
         content: r.content,
         recommendations: r.recommendations || [],
+        intent: r.intent,
       }));
       setMessages([{ ...WELCOME_MESSAGE, id: 'welcome' }, ...mapped]);
     });
@@ -80,14 +83,17 @@ const ChatbotWidget = ({ user }) => {
         }
 
         setStreamingContent('');
-        const reply = finalPayload?.reply || fullReply || 'Here are some ideas for you.';
+        const reply = finalPayload?.reply || fullReply || 'Something went wrong. Try again.';
         const assistantMsg = {
           id: nextId(),
           role: 'assistant',
           content: reply,
           recommendations: finalPayload?.recommendations || [],
+          intent: finalPayload?.intent,
         };
         setMessages((prev) => [...prev, assistantMsg]);
+
+        if (!isOpen) setUnreadCount((c) => c + 1);
 
         if (finalPayload?.suggested_prompts?.length) {
           setSuggestedPrompts(finalPayload.suggested_prompts);
@@ -111,7 +117,7 @@ const ChatbotWidget = ({ user }) => {
         busyRef.current = false;
       }
     },
-    [sessionId, user]
+    [sessionId, user, isOpen]
   );
 
   const handleClear = useCallback(async () => {
@@ -119,7 +125,7 @@ const ChatbotWidget = ({ user }) => {
     try {
       await deleteChatHistory(sessionId);
     } catch {
-      /* Keep local reset available even if the server has nothing to delete. */
+      // ignore
     }
     const sid = `ct-${crypto.randomUUID?.() || Date.now()}`;
     localStorage.setItem('critics_talk_session_id', sid);
@@ -128,7 +134,13 @@ const ChatbotWidget = ({ user }) => {
     setIsTyping(false);
     setMessages([{ ...WELCOME_MESSAGE, id: 'welcome' }]);
     setSuggestedPrompts(DEFAULT_PROMPTS);
+    setUnreadCount(0);
   }, [sessionId, user]);
+
+  const handleOpen = () => {
+    setIsOpen(true);
+    setUnreadCount(0);
+  };
 
   if (!user) return null;
 
@@ -156,25 +168,44 @@ const ChatbotWidget = ({ user }) => {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             whileHover={{ scale: 1.06 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-4 sm:right-6 z-[55] h-14 w-14 rounded-full bg-gradient-to-br from-red-600 via-red-700 to-black text-white shadow-xl shadow-red-900/40 flex items-center justify-center border border-red-500/30 group"
+            whileTap={{ scale: 0.94 }}
+            onClick={handleOpen}
+            className="fixed bottom-6 right-4 sm:right-6 z-[55] h-14 w-14 rounded-full text-white shadow-xl flex items-center justify-center border group"
+            style={{
+              background: 'linear-gradient(135deg, #dc2626 0%, #7f1d1d 100%)',
+              borderColor: 'rgba(239,68,68,0.3)',
+              boxShadow: '0 8px 32px rgba(220,38,38,0.35)',
+            }}
             aria-label="Open Critics Talk"
             data-testid="critics-talk-fab"
           >
-            <FaComments className="text-xl group-hover:scale-110 transition-transform" />
-            <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-red-400 border-2 border-[#0B0B0B] animate-pulse" />
+            <MdMovieFilter className="text-2xl group-hover:scale-110 transition-transform" />
+
+            {/* Pulse ring */}
+            <span className="absolute inset-0 rounded-full border border-red-500/30 animate-ping opacity-40" />
+
+            {/* Unread badge */}
+            {unreadCount > 0 && (
+              <motion.span
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 border-2 border-[#0B0B0B] flex items-center justify-center text-[10px] font-bold text-white"
+              >
+                {unreadCount}
+              </motion.span>
+            )}
           </motion.button>
         )}
       </AnimatePresence>
 
+      {/* Mobile close button */}
       {isOpen && (
         <motion.button
           type="button"
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           onClick={() => setIsOpen(false)}
-          className="fixed bottom-6 right-4 sm:right-6 z-[61] h-12 w-12 rounded-full bg-zinc-900/90 border border-white/15 text-white flex items-center justify-center sm:hidden"
+          className="fixed bottom-6 right-4 z-[61] h-12 w-12 rounded-full bg-zinc-900/90 border border-white/15 text-white flex items-center justify-center sm:hidden shadow-xl"
           aria-label="Close"
         >
           ✕

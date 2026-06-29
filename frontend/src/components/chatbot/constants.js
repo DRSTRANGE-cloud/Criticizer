@@ -1,18 +1,15 @@
 export const DEFAULT_PROMPTS = [
-  'Recommend movies that will completely mess with my mind',
-  'I loved Interstellar. What should I watch next?',
-  'Suggest dark psychological thrillers with great endings',
+  'Recommend movies that will mess with my mind',
   'Find hidden sci-fi gems most people missed',
-  'Recommend anime that will emotionally destroy me',
-  'What are the hottest movies trending right now?',
-  'Suggest movies similar to Attack on Titan',
-  'What should I watch tonight based on my ratings?',
+  'What is trending right now?',
+  'Movies with the best cinematography',
+  'Movies by Christopher Nolan ranked',
 ];
 
 export const WELCOME_MESSAGE = {
   id: 'welcome',
   role: 'assistant',
   content:
-    "Hey - I'm **Critics Talk**, your cinematic companion on Criticizer. Tell me your mood, a title you loved, or what you're in the mood for. I'll find picks, explain films, and help you decide faster.",
+    "Hey — I'm **Critics Talk**, your cinematic AI on Criticizer. Tell me a mood, a title you loved, or what you're in the mood for. I'll find picks, explain films, compare titles, and help you decide what to watch tonight.",
   recommendations: [],
 };

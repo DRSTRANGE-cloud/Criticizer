@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { FaBars, FaBookmark, FaFilm, FaHome, FaLayerGroup, FaLock, FaSearch, FaSignOutAlt, FaTimes } from "react-icons/fa";
+import { FaBars, FaBookmark, FaFilm, FaHome, FaLayerGroup, FaLock, FaSearch, FaSignOutAlt, FaTimes, FaClock, FaTrash } from "react-icons/fa";
 import { AnimatePresence, motion } from "framer-motion";
 import api from "../services/api";
 
@@ -38,7 +38,70 @@ const Navbar = ({ user, onLogout, onOpenAuth }) => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [searchHistory, setSearchHistory] = useState([]);
   const searchRef = useRef(null);
+  const mobileSearchRef = useRef(null);
+
+  // Load search history from localStorage
+  useEffect(() => {
+    if (user) {
+      const saved = localStorage.getItem(`searchHistory_${user.user_id}`);
+      if (saved) {
+        try {
+          setSearchHistory(JSON.parse(saved));
+        } catch {
+          setSearchHistory([]);
+        }
+      }
+    }
+  }, [user]);
+
+  // Save search history to localStorage
+  const saveSearchHistory = (history) => {
+    if (user) {
+      localStorage.setItem(`searchHistory_${user.user_id}`, JSON.stringify(history));
+    }
+  };
+
+  // Add search to history
+  const addToHistory = (searchTerm, resultItem) => {
+    if (!user || !searchTerm.trim()) return;
+
+    const historyItem = {
+      id: `${resultItem.id}-${resultItem.media_type || 'movie'}-${Date.now()}`,
+      term: searchTerm.trim(),
+      timestamp: Date.now(),
+      result: {
+        id: resultItem.id,
+        title: resultItem.title,
+        poster_path: resultItem.poster_path,
+        media_type: resultItem.media_type || 'movie',
+        release_date: resultItem.release_date,
+        slug: resultItem.slug,
+      }
+    };
+
+    // Remove duplicates (same movie/show)
+    const filtered = searchHistory.filter(
+      item => !(item.result.id === resultItem.id && item.result.media_type === (resultItem.media_type || 'movie'))
+    );
+
+    // Keep only last 20 searches
+    const newHistory = [historyItem, ...filtered].slice(0, 20);
+    setSearchHistory(newHistory);
+    saveSearchHistory(newHistory);
+  };
+
+  const clearHistory = () => {
+    setSearchHistory([]);
+    saveSearchHistory([]);
+  };
+
+  const removeHistoryItem = (id) => {
+    const newHistory = searchHistory.filter(item => item.id !== id);
+    setSearchHistory(newHistory);
+    saveSearchHistory(newHistory);
+  };
 
   useEffect(() => {
     if (!user) {
@@ -82,7 +145,9 @@ const Navbar = ({ user, onLogout, onOpenAuth }) => {
   useEffect(() => {
     setMenuOpen(false);
     const onMouseDown = (event) => {
-      if (searchRef.current && !searchRef.current.contains(event.target)) {
+      const inDesktop = searchRef.current && searchRef.current.contains(event.target);
+      const inMobile = mobileSearchRef.current && mobileSearchRef.current.contains(event.target);
+      if (!inDesktop && !inMobile) {
         setSearchOpen(false);
       }
     };
@@ -111,13 +176,86 @@ const Navbar = ({ user, onLogout, onOpenAuth }) => {
     const slug =
       item.slug ||
       (item.media_type === "tv" ? `tv-${item.id}` : String(item.id));
+
+    // Add to search history when navigating to a result
+    if (query.trim()) {
+      addToHistory(query, item);
+    }
+
     setSearchOpen(false);
     setQuery("");
     navigate(`/movie/${slug}`);
   };
 
-  const renderSearchBox = (mobile = false) => (
-    <div className={`relative w-full ${mobile ? "md:hidden" : "mx-auto hidden max-w-xl md:block"}`} ref={mobile ? null : searchRef}>
+  const renderSearchHistory = () => {
+    if (!user || searchHistory.length === 0 || query.trim()) {
+      return null;
+    }
+
+    return (
+      <div>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+          <div className="flex items-center gap-2 text-sm text-zinc-400">
+            <FaClock className="text-red-400" />
+            <span>Recent Searches</span>
+          </div>
+          <button
+            onClick={clearHistory}
+            className="text-xs text-zinc-500 hover:text-red-400 transition"
+          >
+            Clear All
+          </button>
+        </div>
+        <ul className="max-h-72 overflow-y-auto py-2">
+          {searchHistory.map((item) => (
+            <li key={item.id}>
+              <div className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 transition group">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (item.result) {
+                      goToMovie(item.result);
+                    }
+                  }}
+                  className="flex-1 flex items-center gap-3 text-left min-w-0"
+                >
+                  {item.result.poster_path ? (
+                    <img
+                      src={item.result.poster_path}
+                      alt=""
+                      className="w-8 h-11 rounded object-cover flex-none"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-8 h-11 rounded bg-white/5 flex-none" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-white text-sm truncate">{item.result.title}</div>
+                    <div className="text-xs text-zinc-500">
+                      {item.result.media_type || "movie"}
+                    </div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => removeHistoryItem(item.id)}
+                  className="text-zinc-600 hover:text-red-400 transition p-1 opacity-0 group-hover:opacity-100"
+                >
+                  <FaTimes className="text-xs" />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  };
+
+ const renderSearchBox = (mobile = false) => (
+    <div
+      className={`relative w-full ${mobile ? "md:hidden" : "mx-auto hidden max-w-xl md:block"}`}
+      ref={mobile ? mobileSearchRef : searchRef}
+      style={mobile ? {} : { zIndex: 60 }}
+    >
       <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
       {!user && <FaLock className="absolute right-4 top-1/2 -translate-y-1/2 text-red-400/70" />}
       <input
@@ -132,41 +270,44 @@ const Navbar = ({ user, onLogout, onOpenAuth }) => {
         onClick={handleSearchFocus}
         readOnly={!user}
         placeholder={user ? "Search movies and series" : "Login to search titles"}
-        className={`w-full rounded-2xl border text-white pl-11 pr-10 py-2.5 outline-none transition ${
-          user
+        className={`w-full rounded-2xl border text-white pl-11 pr-10 py-2.5 outline-none transition ${user
             ? "bg-white/[0.04] border-white/10 focus:border-red-500/60 focus:ring-2 focus:ring-red-500/15 hover:border-white/20"
             : "bg-white/[0.02] border-white/10 cursor-pointer"
-        }`}
+          }`}
       />
       {!user && (
         <button type="button" onClick={() => onOpenAuth("login")} className="absolute inset-0 rounded-2xl" aria-label="Login to search" />
       )}
-      {user && searchOpen && query.trim() && (
-        <div className={`absolute left-0 right-0 top-full mt-2 rounded-2xl border border-white/10 bg-[#0a0a0a]/95 backdrop-blur-2xl shadow-2xl overflow-hidden ${mobile ? "z-[70]" : ""}`}>
-          {loading ? (
-            <div className="px-4 py-4 text-sm text-zinc-400">Searching...</div>
-          ) : results.length === 0 ? (
-            <div className="px-4 py-4 text-sm text-zinc-400">No matches found</div>
-          ) : (
-            <ul className="max-h-96 overflow-y-auto py-2">
-              {results.map((item) => (
-                <li key={`${mobile ? "m" : "d"}-${item.media_type || "movie"}-${item.id}`}>
-                  <button type="button" onClick={() => goToMovie(item)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 transition text-left">
-                    {item.poster_path ? (
-                      <img src={item.poster_path} alt="" className="w-10 h-14 rounded-lg object-cover flex-none" loading="lazy" />
-                    ) : (
-                      <div className="w-10 h-14 rounded-lg bg-white/5 flex-none" />
-                    )}
-                    <div className="min-w-0">
-                      <div className="text-white font-medium truncate">{item.title}</div>
-                      <div className="text-xs text-zinc-500 capitalize">
-                        {item.media_type || "movie"} {item.release_date ? `- ${item.release_date.slice(0, 4)}` : ""}
+     {user && searchOpen && (
+        <div className="absolute left-0 right-0 top-full mt-2 rounded-2xl border border-white/10 bg-[#0a0a0a]/95 backdrop-blur-2xl shadow-2xl overflow-hidden z-[70]">
+          {query.trim() ? (
+            loading ? (
+              <div className="px-4 py-4 text-sm text-zinc-400">Searching...</div>
+            ) : results.length === 0 ? (
+              <div className="px-4 py-4 text-sm text-zinc-400">No matches found</div>
+            ) : (
+              <ul className="max-h-96 overflow-y-auto py-2">
+                {results.map((item) => (
+                  <li key={`${mobile ? "m" : "d"}-${item.media_type || "movie"}-${item.id}`}>
+                    <button type="button" onClick={() => goToMovie(item)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 transition text-left">
+                      {item.poster_path ? (
+                        <img src={item.poster_path} alt="" className="w-10 h-14 rounded-lg object-cover flex-none" loading="lazy" />
+                      ) : (
+                        <div className="w-10 h-14 rounded-lg bg-white/5 flex-none" />
+                      )}
+                      <div className="min-w-0">
+                        <div className="text-white font-medium truncate">{item.title}</div>
+                        <div className="text-xs text-zinc-500 capitalize">
+                          {item.media_type || "movie"} {item.release_date ? `- ${item.release_date.slice(0, 4)}` : ""}
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )
+          ) : (
+            renderSearchHistory()
           )}
         </div>
       )}
@@ -177,19 +318,19 @@ const Navbar = ({ user, onLogout, onOpenAuth }) => {
 
   const menuItems = user
     ? [
-        { label: "Home", icon: FaHome, action: () => navigate("/") },
-        { label: "My Lists", icon: FaBookmark, action: () => navigate("/watchlist") },
-        { label: "Profile", icon: FaLayerGroup, action: () => navigate(`/profile/${user.user_id}`) },
-        { label: "Wrapped", icon: FaFilm, action: () => navigate(`/profile/${user.user_id}/wrapped`) },
-        {
-          label: "Discussions",
-          icon: FaSearch,
-          action: () => {
-            navigate("/");
-            window.setTimeout(() => document.getElementById("discussion")?.scrollIntoView({ behavior: "smooth" }), 120);
-          },
+      { label: "Home", icon: FaHome, action: () => navigate("/") },
+      { label: "My Lists", icon: FaBookmark, action: () => navigate("/watchlist") },
+      { label: "Profile", icon: FaLayerGroup, action: () => navigate(`/profile/${user.user_id}`) },
+      { label: "Wrapped", icon: FaFilm, action: () => navigate(`/profile/${user.user_id}/wrapped`) },
+      {
+        label: "Discussions",
+        icon: FaSearch,
+        action: () => {
+          navigate("/");
+          window.setTimeout(() => document.getElementById("discussion")?.scrollIntoView({ behavior: "smooth" }), 120);
         },
-      ]
+      },
+    ]
     : [{ label: "Home", icon: FaHome, action: () => navigate("/") }];
 
   return (
@@ -219,99 +360,16 @@ const Navbar = ({ user, onLogout, onOpenAuth }) => {
               CRITICIZER
             </span>
           </motion.button>
-
-          <div className="relative mx-auto hidden w-full max-w-xl md:block" ref={searchRef}>
-            <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
-            {!user && (
-              <FaLock className="absolute right-4 top-1/2 -translate-y-1/2 text-red-400/70" />
-            )}
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => {
-                if (!user) return;
-                setQuery(event.target.value);
-                setSearchOpen(true);
-              }}
-              onFocus={handleSearchFocus}
-              onClick={handleSearchFocus}
-              readOnly={!user}
-              placeholder={
-                user ? "Search movies and series" : "Login to search titles"
-              }
-              className={`w-full rounded-2xl border text-white pl-11 pr-10 py-2.5 sm:py-3 outline-none transition ${
-                user
-                  ? "bg-white/[0.04] border-white/10 focus:border-red-500/60 focus:ring-2 focus:ring-red-500/15 hover:border-white/20"
-                  : "bg-white/[0.02] border-white/10 cursor-pointer"
-              }`}
-            />
-            {!user && (
-              <button
-                type="button"
-                onClick={() => onOpenAuth("login")}
-                className="absolute inset-0 rounded-2xl"
-                aria-label="Login to search"
-              />
-            )}
-            {user && searchOpen && query.trim() && (
-              <div className="absolute left-0 right-0 top-full mt-2 rounded-2xl border border-white/10 bg-[#0a0a0a]/95 backdrop-blur-2xl shadow-2xl overflow-hidden">
-                {loading ? (
-                  <div className="px-4 py-4 text-sm text-zinc-400">
-                    Searching...
-                  </div>
-                ) : results.length === 0 ? (
-                  <div className="px-4 py-4 text-sm text-zinc-400">
-                    No matches found
-                  </div>
-                ) : (
-                  <ul className="max-h-96 overflow-y-auto py-2">
-                    {results.map((item) => (
-                      <li key={`${item.media_type || "movie"}-${item.id}`}>
-                        <button
-                          type="button"
-                          onClick={() => goToMovie(item)}
-                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 transition text-left"
-                        >
-                          {item.poster_path ? (
-                            <img
-                              src={item.poster_path}
-                              alt=""
-                              className="w-10 h-14 rounded-lg object-cover flex-none"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="w-10 h-14 rounded-lg bg-white/5 flex-none" />
-                          )}
-                          <div className="min-w-0">
-                            <div className="text-white font-medium truncate">
-                              {item.title}
-                            </div>
-                            <div className="text-xs text-zinc-500 capitalize">
-                              {item.media_type || "movie"}{" "}
-                              {item.release_date
-                                ? `- ${item.release_date.slice(0, 4)}`
-                                : ""}
-                            </div>
-                          </div>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-          </div>
-
+          {renderSearchBox(false)}
           <div className="flex items-center justify-end gap-2 sm:gap-3">
             {user ? (
               <>
                 <button
                   onClick={() => navigate("/watchlist")}
-                  className={`hidden lg:flex items-center gap-2 px-3 py-2 rounded-xl transition ${
-                    isActive("/watchlist")
+                  className={`hidden lg:flex items-center gap-2 px-3 py-2 rounded-xl transition ${isActive("/watchlist")
                       ? "text-red-400 bg-red-500/10 border border-red-500/30"
                       : "text-white hover:text-red-400 hover:bg-white/5"
-                  }`}
+                    }`}
                   data-testid="watchlist-nav-button"
                 >
                   <FaBookmark className="text-lg" />
@@ -320,11 +378,10 @@ const Navbar = ({ user, onLogout, onOpenAuth }) => {
 
                 <button
                   onClick={() => navigate(`/profile/${user.user_id}`)}
-                  className={`hidden lg:flex items-center gap-2 px-3 py-2 rounded-xl transition ${
-                    location.pathname.includes("/profile/")
+                  className={`hidden lg:flex items-center gap-2 px-3 py-2 rounded-xl transition ${location.pathname.includes("/profile/")
                       ? "text-red-400 bg-red-500/10 border border-red-500/30"
                       : "text-white hover:text-red-400 hover:bg-white/5"
-                  }`}
+                    }`}
                 >
                   <FaLayerGroup className="text-sm" />
                   <span className="text-sm font-medium">Profile</span>
