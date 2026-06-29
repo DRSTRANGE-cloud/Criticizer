@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { FaBars, FaBookmark, FaFilm, FaHome, FaLayerGroup, FaLock, FaSearch, FaSignOutAlt, FaTimes, FaClock, FaTrash } from "react-icons/fa";
+import { FaBars, FaBookmark, FaFilm, FaHome, FaLayerGroup, FaLock, FaSearch, FaSignOutAlt, FaTimes, FaClock } from "react-icons/fa";
 import { AnimatePresence, motion } from "framer-motion";
 import api from "../services/api";
 

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { FaPaperPlane, FaMicrophone } from 'react-icons/fa';
+import { FaPaperPlane } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 
 const QUICK_ACTIONS = [
